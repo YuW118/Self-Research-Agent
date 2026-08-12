@@ -259,6 +259,8 @@ const App = {
       case 'export-manual': this.exportManual(); break;
       case 'export-data': this.exportData(); break;
       case 'import-data': this.importData(); break;
+      case 'import-merge': this.importMerge(); break;
+      case 'import-overwrite': this.importOverwrite(); break;
       case 'reset-data': this.resetData(); break;
       case 'restore-backup': this.restoreBackup(); break;
       case 'pwa-install': this.installPWA(); break;
@@ -1545,6 +1547,47 @@ const App = {
             } else {
               this.toast('导入失败：文件格式不正确');
             }
+          }
+        } catch (err) {
+          this.toast('导入失败：文件解析错误，请确认是本应用导出的 JSON 文件');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  },
+
+  importMerge() {
+    this._doImport(true);
+  },
+
+  importOverwrite() {
+    this._doImport(false);
+  },
+
+  _doImport(merge) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          const stats = this._summarizeImport(data);
+          const confirmMsg = merge
+            ? `🔄 合并导入 — 同日期/同ID取导入版本，本地独有数据保留\n\n即将导入：${stats.checkins} 条打卡 · ${stats.dimensions} 个维度 · ${stats.readings} 条共鸣 · ${stats.timeline} 条时间线\n\n确定合并吗？`
+            : `⚠️ 覆盖导入 — 用导入文件**完全替换**本机所有数据\n\n即将导入：${stats.checkins} 条打卡 · ${stats.dimensions} 个维度 · ${stats.readings} 条共鸣\n\n本地数据将被清除。确定覆盖吗？`;
+          if (!confirm(confirmMsg)) return;
+          const ok = merge ? Store.importMerge(data) : Store.importAll(data);
+          if (ok) {
+            const label = merge ? '合并' : '覆盖';
+            this.toast(`${label}导入成功：${stats.checkins} 条打卡、${stats.dimensions} 个维度、${stats.readings} 条共鸣`);
+            this.route('dashboard');
+          } else {
+            this.toast('导入失败：文件格式不正确');
           }
         } catch (err) {
           this.toast('导入失败：文件解析错误，请确认是本应用导出的 JSON 文件');

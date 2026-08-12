@@ -1722,14 +1722,36 @@ const Views = {
 
       <div class="card" style="margin-bottom:16px;">
         <div class="card-title">数据管理</div>
-        <div class="ai-note" style="margin-bottom:12px;">用于在电脑和手机之间同步数据：在一台设备点「导出」下载 .json 文件 → 把文件传到另一台设备 → 点「导入」恢复全部数据。</div>
+        <div class="ai-note" style="margin-bottom:12px;">用于在电脑和手机之间同步数据：点「导出」下载 .json 文件 → 把文件传到另一台设备 → 选择导入方式。</div>
         <div class="setting-row">
-          <div><div class="sr-label">导出数据</div><div class="sr-desc">备份所有打卡、研究、共鸣、时间线、愿景板数据</div></div>
-          <button class="btn btn-sm" data-action="export-data">📤 导出</button>
+          <div><div class="sr-label">导出数据</div><div class="sr-desc">备份所有打卡、研究、共鸣、时间线、愿景板数据为 .json 文件</div></div>
+          <button class="btn btn-sm" data-action="export-data">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="margin-right:4px;vertical-align:middle;">
+              <path d="M8 2v9M8 2L5 5M8 2l3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M2 10v3h12v-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            导出
+          </button>
         </div>
         <div class="setting-row">
-          <div><div class="sr-label">导入数据</div><div class="sr-desc">从备份文件恢复数据。支持合并（推荐）和覆盖两种模式</div></div>
-          <button class="btn btn-sm" data-action="import-data">📥 导入</button>
+          <div><div class="sr-label">合并导入（推荐）</div><div class="sr-desc">导入备份，同日期/同ID取导入版本，本地独有数据保留</div></div>
+          <button class="btn btn-sm" data-action="import-merge">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="margin-right:4px;vertical-align:middle;">
+              <path d="M2 8h12M8 2v12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            合并
+          </button>
+        </div>
+        <div class="setting-row">
+          <div><div class="sr-label">覆盖导入</div><div class="sr-desc">用导入文件完全替换本机所有数据（旧数据将丢失）</div></div>
+          <button class="btn btn-sm" data-action="import-overwrite" style="color:var(--c-coral-dark); border-color:var(--c-coral);">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="margin-right:4px;vertical-align:middle;">
+              <path d="M8 2v9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              <path d="M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M2 12v1.5h12V12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            覆盖
+          </button>
         </div>
         ${(() => {
           const info = Store.getBackupInfo();
