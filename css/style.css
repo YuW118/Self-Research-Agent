@@ -2214,6 +2214,9 @@ textarea { min-height: 80px; line-height: 1.6; }
   line-height: 1;
   transition: all 0.15s;
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .vb-tool-btn:hover {
   background: var(--bg-hover);
@@ -2221,6 +2224,9 @@ textarea { min-height: 80px; line-height: 1.6; }
 }
 .vb-tool-del { color: var(--text-tertiary); }
 .vb-tool-del:hover { color: #c0392b; border-color: #c0392b; background: #fef5f5; }
+.vb-add-img { color: var(--c-purple-dark); }
+.vb-add-img:hover { color: var(--c-purple); background: var(--c-purple-light); border-color: var(--c-purple); }
+.vb-add-img input[type="file"] { display: none; }
 
 .vb-image-grid {
   display: grid;

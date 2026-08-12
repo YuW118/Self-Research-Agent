@@ -1598,7 +1598,7 @@ const Views = {
     const themesHtml = themes.map(t => {
       const imgs = t.images || [];
       const tilesHtml = imgs.length === 0
-        ? `<div class="vb-empty-tile">还没有图</div>`
+        ? `<div class="vb-empty-tile">还没有图片，点右上角 ＋ 添加</div>`
         : imgs.map((src, idx) => `
             <div class="vb-image-tile" data-action="open-vision-image" data-theme="${this._escape(t.id)}" data-index="${idx}">
               <img src="${src}" alt="${this._escape(t.title)}图${idx + 1}" loading="lazy">
@@ -1617,17 +1617,28 @@ const Views = {
                    value="${this._escape(t.title)}" maxlength="24" spellcheck="false">
             <div class="vb-theme-tools">
               <span class="vb-count">${imgs.length} 图</span>
-              <button class="vb-tool-btn" data-action="toggle-vision-note" data-theme="${this._escape(t.id)}" title="备注">📝</button>
-              <button class="vb-tool-btn vb-tool-del" data-action="delete-vision-theme" data-theme="${this._escape(t.id)}" title="删除主题">🗑</button>
+              <label class="vb-tool-btn vb-add-img" data-theme="${this._escape(t.id)}" title="添加图片">
+                <input type="file" class="vb-file-input" accept="image/*" data-theme="${this._escape(t.id)}" multiple>
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                  <circle cx="5.5" cy="6.5" r="1.3" stroke="currentColor" stroke-width="1.2"/>
+                  <path d="M2.5 12l3.5-3.5 2.5 2.5 2-2 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M8 2v4M6 4h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+              </label>
+              <button class="vb-tool-btn" data-action="toggle-vision-note" data-theme="${this._escape(t.id)}" title="备注">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <path d="M13 2.5L13.5 3a2 2 0 01-3 3L4 12.5 1.5 14l1.5-2.5L9.5 5a2 2 0 013-2.5z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button class="vb-tool-btn vb-tool-del" data-action="delete-vision-theme" data-theme="${this._escape(t.id)}" title="删除主题">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <path d="M2.5 4h11M6.5 4V2.5h3V4M4 4l.8 9.5h6.4L12 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
             </div>
           </div>
-          <div class="vb-image-grid">${tilesHtml}
-            <label class="vb-add-tile" data-theme="${this._escape(t.id)}">
-              <input type="file" class="vb-file-input" accept="image/*" data-theme="${this._escape(t.id)}" multiple>
-              <div class="vb-add-plus">+</div>
-              <div class="vb-add-text">添加图片</div>
-            </label>
-          </div>
+          <div class="vb-image-grid">${tilesHtml}</div>
           <textarea class="vb-note-input" data-action="edit-vision-note" data-theme="${this._escape(t.id)}"
                     placeholder="对这个主题写一句驱动力 / 行动宣言…"
                     style="display:${t.note ? 'block' : 'none'};">${this._escape(t.note)}</textarea>
