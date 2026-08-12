@@ -1510,23 +1510,41 @@ const App = {
           const data = JSON.parse(ev.target.result);
           // 统计即将导入的数据量，让用户心里有数
           const stats = this._summarizeImport(data);
-          // 导入前确认，防止误操作覆盖本机新数据
-          const ok = confirm(
+          // 导入前确认，让用户选择模式
+          const mode = confirm(
             `即将导入备份文件：\n\n` +
             `  · 打卡记录：${stats.checkins} 条\n` +
             `  · 维度研究：${stats.dimensions} 个\n` +
             `  · 阅读共鸣：${stats.readings} 条\n` +
             `  · 愿景主题：${stats.themes} 个\n` +
             `  · 时间线事件：${stats.timeline} 条\n\n` +
-            `⚠️ 这会覆盖本机当前的所有数据。\n\n` +
-            `确定继续吗？`
+            `📋 点「确定」= 合并模式（推荐）\n` +
+            `   导入数据与现有数据智能合并，同日期/同ID取导入版本，其他互不覆盖\n\n` +
+            `⚠️ 点「取消」= 覆盖模式\n` +
+            `   用导入数据完全替换本机数据（旧数据丢失）\n\n` +
+            `点击确定继续合并，点击取消再确认覆盖。`
           );
-          if (!ok) return;
-          if (Store.importAll(data)) {
-            this.toast(`导入成功：${stats.checkins} 条打卡、${stats.dimensions} 个维度、${stats.readings} 条共鸣`);
-            this.route('dashboard');
+          if (mode) {
+            // 合并模式
+            if (Store.importMerge(data)) {
+              this.toast(`合并导入成功：${stats.checkins} 条打卡、${stats.dimensions} 个维度、${stats.readings} 条共鸣`);
+              this.route('dashboard');
+            } else {
+              this.toast('导入失败：文件格式不正确');
+            }
           } else {
-            this.toast('导入失败：文件格式不正确（版本不匹配）');
+            // 覆盖模式：二次确认
+            const confirmOverwrite = confirm(
+              `⚠️ 这将用导入文件**完全替换**本机所有数据。\n\n` +
+              `本地现有数据将被清除。\n\n确定要覆盖吗？`
+            );
+            if (!confirmOverwrite) return;
+            if (Store.importAll(data)) {
+              this.toast(`覆盖导入成功：${stats.checkins} 条打卡、${stats.dimensions} 个维度、${stats.readings} 条共鸣`);
+              this.route('dashboard');
+            } else {
+              this.toast('导入失败：文件格式不正确');
+            }
           }
         } catch (err) {
           this.toast('导入失败：文件解析错误，请确认是本应用导出的 JSON 文件');

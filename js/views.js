@@ -1728,7 +1728,7 @@ const Views = {
           <button class="btn btn-sm" data-action="export-data">📤 导出</button>
         </div>
         <div class="setting-row">
-          <div><div class="sr-label">导入数据</div><div class="sr-desc">从备份文件恢复数据（会覆盖本机当前数据）</div></div>
+          <div><div class="sr-label">导入数据</div><div class="sr-desc">从备份文件恢复数据。支持合并（推荐）和覆盖两种模式</div></div>
           <button class="btn btn-sm" data-action="import-data">📥 导入</button>
         </div>
         ${(() => {

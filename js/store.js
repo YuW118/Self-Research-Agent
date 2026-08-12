@@ -496,6 +496,82 @@ const Store = {
     return true;
   },
 
+  /**
+   * 合并导入：只新增不覆盖，同 ID/日期取最新
+   */
+  importMerge(data) {
+    if (!data || data.version !== 1) return false;
+
+    // startedAt: 取最早
+    const currentStart = this._read(this.KEYS.startedAt, '');
+    const importStart = data.startedAt || '';
+    if (!currentStart || (importStart && importStart < currentStart)) {
+      this._write(this.KEYS.startedAt, importStart || new Date().toISOString());
+    }
+
+    // checkins: 按日期合并，导入的覆盖同一天
+    const localCheckins = this.getCheckins();
+    const importCheckins = data.checkins || [];
+    const checkinMap = {};
+    localCheckins.forEach(c => { checkinMap[c.date] = c; });
+    importCheckins.forEach(c => { checkinMap[c.date] = c; }); // 导入覆盖
+    this._write(this.KEYS.checkins, Object.values(checkinMap));
+
+    // dimensions: 按维度 ID 合并
+    const localDims = this._read(this.KEYS.dimensions, {});
+    const importDims = data.dimensions || {};
+    Object.keys(importDims).forEach(id => {
+      const local = localDims[id] || {};
+      const imp = importDims[id] || {};
+      localDims[id] = { ...local, ...imp };
+    });
+    this._write(this.KEYS.dimensions, localDims);
+
+    // readings: 按 id 合并
+    const localReadings = this.getReadings();
+    const importReadings = data.readings || [];
+    const readingMap = {};
+    localReadings.forEach(r => { readingMap[r.id] = r; });
+    importReadings.forEach(r => { readingMap[r.id] = r; });
+    this._write(this.KEYS.readings, Object.values(readingMap));
+
+    // triggers / patterns / timeline: 按 id 合并
+    this._mergeArrayById(this.KEYS.triggers, data.triggers || []);
+    this._mergeArrayById(this.KEYS.patterns, data.patterns || []);
+    this._mergeArrayById(this.KEYS.timeline, data.timeline || []);
+
+    // visionBoard: 合并 themes
+    const localVB = this.getVisionBoard();
+    const importVB = data.visionBoard || {};
+    const localThemes = (localVB.themes || []).slice();
+    const importThemes = (importVB.themes || []).slice();
+    const themeMap = {};
+    localThemes.forEach(t => { themeMap[t.id] = t; });
+    importThemes.forEach(t => { themeMap[t.id] = t; });
+    this._write(this.KEYS.visionBoard, { themes: Object.values(themeMap) });
+
+    // settings: 合并（导入覆盖）
+    const localSettings = this.getSettings();
+    const importSettings = data.settings || {};
+    this._write(this.KEYS.settings, { ...localSettings, ...importSettings });
+
+    return true;
+  },
+
+  _mergeArrayById(key, imported) {
+    const local = this._read(key, []);
+    const map = {};
+    local.forEach(item => {
+      const id = item.id || item.date || JSON.stringify(item).slice(0, 20);
+      map[id] = item;
+    });
+    imported.forEach(item => {
+      const id = item.id || item.date || JSON.stringify(item).slice(0, 20);
+      map[id] = item;
+    });
+    this._write(key, Object.values(map));
+  },
+
   resetAll() {
     Object.values(this.KEYS).forEach(k => localStorage.removeItem(k));
     this.init();
