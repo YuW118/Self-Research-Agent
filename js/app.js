@@ -101,7 +101,8 @@ const App = {
     readingImages: [],
     speechTopic: null,
     speechTopicHint: null,
-    speechAITemp: null
+    speechAITemp: null,
+    healQuote: null     // null = 用默认开场白；非 null = AI 生成或手动切换的
   },
 
   init() {
@@ -242,6 +243,7 @@ const App = {
       case 'ai-insight': this.aiInsight(); break;
       case 'change-speech-topic': this.changeSpeechTopic(); break;
       case 'ai-speech': this.aiSpeechAnalysis(); break;
+      case 'refresh-heal-quote': this.refreshHealQuote(); break;
       case 'toggle-accordion': this.toggleAccordion(target.dataset.module); break;
       case 'select-module': this.selectModule(target.dataset.module); break;
       case 'select-dimension': this.selectDimension(parseInt(target.dataset.dim)); break;
@@ -789,6 +791,47 @@ const App = {
     // 清除 AI 分析结果区域
     const aiArea = document.getElementById('speechAIResult');
     if (aiArea) aiArea.innerHTML = '';
+  },
+
+  async refreshHealQuote() {
+    const hasAI = !!(Store.getSettings().ai && Store.getSettings().ai.endpoint && Store.getSettings().ai.apiKey);
+    if (!hasAI) {
+      // 无 AI：从本地词库随机换一条
+      const current = this.state.healQuote || '';
+      const available = HEALING_QUOTES.filter(q => q !== current);
+      const pick = available.length ? available[Math.floor(Math.random() * available.length)] : HEALING_QUOTES[0];
+      this.state.healQuote = pick;
+      const hqT = document.querySelector('.hq-text');
+      if (hqT) hqT.textContent = pick;
+      return;
+    }
+    // 有 AI：调用生成个性化开场白
+    const current = this.state.healQuote || HEALING_QUOTES[0];
+    const prompt = `你是一位温暖的教练。用户在做自我研究（Self-Research），每天记录情绪、能量和感恩。请生成一句鼓励开场白（1-2句话，25-45字），要求：温柔有力量、像投资人看待长期项目一样看待自己、不空洞不鸡汤。避免和这句雷同：${current}`;
+    try {
+      this.toast('✨ AI 生成开场白…');
+      const content = await AIClient.complete([
+        { role: 'system', content: '你是温暖的自我成长教练。只输出开场白文字本身，不要引号、不要任何解释和标注。' },
+        { role: 'user', content: prompt }
+      ], { temperature: 0.9 });
+      const quote = (content || '').trim().replace(/^["「『]|["」』]$/g, '').replace(/^["「『]|["」』]$/g, '');
+      if (quote) {
+        this.state.healQuote = quote;
+        const hqT = document.querySelector('.hq-text');
+        if (hqT) hqT.textContent = quote;
+        const hqS = document.querySelector('.hq-sub');
+        if (hqS) hqS.textContent = 'AI 为你生成的鼓励 · 来自你的自我研究计划';
+        this.toast('✨ 开场白已更新');
+      }
+    } catch (err) {
+      console.error('refreshHealQuote AI failed:', err);
+      // 降级到本地随机
+      const available = HEALING_QUOTES.filter(q => q !== current);
+      const pick = available.length ? available[Math.floor(Math.random() * available.length)] : HEALING_QUOTES[0];
+      this.state.healQuote = pick;
+      const hqT = document.querySelector('.hq-text');
+      if (hqT) hqT.textContent = pick;
+    }
   },
 
   async aiSpeechAnalysis() {

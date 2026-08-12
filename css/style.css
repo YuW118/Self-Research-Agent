@@ -1211,6 +1211,29 @@ textarea { min-height: 80px; line-height: 1.6; }
   font-size: 11px;
   color: var(--text-tertiary);
 }
+.heal-quote .hq-shuffle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0.5px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0.6;
+}
+.heal-quote .hq-shuffle:hover {
+  opacity: 1;
+  color: var(--c-olive-dark);
+  border-color: var(--c-olive);
+  transform: rotate(180deg);
+}
 
 /* === Home status card === */
 .status-card {

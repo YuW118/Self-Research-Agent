@@ -256,9 +256,17 @@ const Views = {
       ${installBanner}
 
       <div class="heal-quote">
-        <div class="hq-mark">“</div>
-        <div class="hq-text">${this._healQuote()}</div>
-        <div class="hq-sub">今日治愈开场白 · 来自你的自我研究计划</div>
+        <div class="hq-mark">"</div>
+        <button class="hq-shuffle" data-action="refresh-heal-quote" title="换一句开场白" aria-label="换一句开场白">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <path d="M11 1.5L14 4.5L11 7.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 4.5H14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M5 14.5L2 11.5L5 8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M14 11.5H2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="hq-text">${App.state.healQuote || this._healQuote()}</div>
+        <div class="hq-sub">${App.state.healQuote ? 'AI 为你生成的鼓励 · 来自你的自我研究计划' : '今日治愈开场白 · 来自你的自我研究计划'}</div>
       </div>
 
       <div class="card card-hover" style="margin-bottom:16px; cursor:pointer;" data-action="goto-checkin">
