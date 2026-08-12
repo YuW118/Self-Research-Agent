@@ -86,6 +86,7 @@ const App = {
     dimSnapshotIdx: null,
     dimSnapshotEditIdx: null,
     checkinEditDate: null,
+    checkinViewDetailDate: null,
     selectedTags: [],
     customTags: [],
     gratitudeEntries: [],
@@ -227,8 +228,10 @@ const App = {
       case 'goto-checkin': this.route('checkin'); break;
       case 'save-checkin': this.saveCheckin(); break;
       case 'edit-checkin': this.editCheckin(target.dataset.date); break;
+      case 'view-checkin': this.viewCheckin(target.dataset.date); break;
       case 'delete-checkin': this.deleteCheckin(target.dataset.date); break;
       case 'cancel-edit-checkin': this.cancelEditCheckin(); break;
+      case 'close-checkin-detail': this.closeCheckinDetail(); break;
       case 'toggle-tag': this.toggleTag(target.dataset.tag); break;
       case 'add-custom-tag': this.addCustomTag(); break;
       case 'remove-custom-tag': this.removeCustomTag(target.dataset.tag); break;
@@ -316,7 +319,13 @@ const App = {
     }
     switch (page) {
       case 'dashboard': main.innerHTML = Views.dashboard(); break;
-      case 'checkin': main.innerHTML = Views.checkin(); break;
+      case 'checkin':
+        if (this.state.checkinViewDetailDate) {
+          main.innerHTML = Views.checkinDetail(this.state.checkinViewDetailDate);
+        } else {
+          main.innerHTML = Views.checkin();
+        }
+        break;
       case 'readings': main.innerHTML = Views.readings(this.state.readingView, this.state.readingEditId); break;
       case 'research':
         if (this.state.dimSnapshotIdx != null) {
@@ -386,6 +395,7 @@ const App = {
     }
     if (!confirm(`加载 ${Views._fmtDate(date)} 的打卡数据到表单？保存时会更新该日记录（不影响今天）。`)) return;
     this.state.checkinEditDate = date;
+    this.state.checkinViewDetailDate = null;
     this.state.selectedTags = [...(c.tags || [])];
     this.state.customTags = [...(c.customTags || [])];
     this.state.gratitudeEntries = [...(c.gratitude || [])];
@@ -405,12 +415,23 @@ const App = {
 
   cancelEditCheckin() {
     this.state.checkinEditDate = null;
+    this.state.checkinViewDetailDate = null;
     this.state.selectedTags = [];
     this.state.customTags = [];
     this.state.gratitudeEntries = [];
     this.state.gratitudeJournal = null;
     this.state.noteAI = null;
     this.toast('已回到今日打卡');
+    this.route('checkin');
+  },
+
+  viewCheckin(date) {
+    this.state.checkinViewDetailDate = date;
+    this.route('checkin');
+  },
+
+  closeCheckinDetail() {
+    this.state.checkinViewDetailDate = null;
     this.route('checkin');
   },
 

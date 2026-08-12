@@ -805,11 +805,14 @@ textarea { min-height: 80px; line-height: 1.6; }
   gap: 12px;
 }
 .ci-hist-item {
+  cursor: pointer;
   padding: 12px 14px;
-  border: 1px solid var(--border-color, #ECEBE9);
+  border: 0.5px solid var(--border);
   border-radius: 8px;
   background: #FCFBFA;
+  transition: box-shadow 0.15s, border-color 0.15s;
 }
+.ci-hist-item:hover { border-color: var(--border-hover); box-shadow: var(--shadow-hover); }
 .ci-hist-head {
   display: flex;
   justify-content: space-between;
@@ -889,6 +892,46 @@ textarea { min-height: 80px; line-height: 1.6; }
 .btn-danger-outline:hover {
   background: #C76A6A;
   color: #fff;
+}
+
+/* === Checkin Detail === */
+.ci-detail-scores {
+  display: flex;
+  gap: 16px;
+}
+.ci-detail-score {
+  font-size: 13px;
+}
+.ci-detail-score span {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-right: 4px;
+}
+.ci-detail-score b {
+  font-size: 16px;
+  font-weight: 500;
+}
+.ci-detail-tags {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ci-detail-grat {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+.ci-detail-grat:last-child { border-bottom: none; }
+.ci-detail-grat-num {
+  color: var(--c-olive-dark);
+  font-weight: 500;
+  flex-shrink: 0;
+  width: 18px;
 }
 
 .mini-chart { display: flex; align-items: flex-end; gap: 4px; height: 60px; }

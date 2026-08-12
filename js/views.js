@@ -592,7 +592,7 @@ const Views = {
             <div class="ci-hist-text" style="white-space:pre-wrap;">${this._escape(gratJournal.text.slice(0, 200))}${gratJournal.text.length > 200 ? '…' : ''}</div>
           </div>`
         : '';
-      return `<div class="ci-hist-item ${isToday ? 'is-today' : ''}">
+      return `<div class="ci-hist-item ${isToday ? 'is-today' : ''}" data-action="view-checkin" data-date="${c.date}" style="cursor:pointer;">
         <div class="ci-hist-head">
           <div>
             <span class="ci-hist-date">${this._fmtDate(c.date)}</span>
@@ -627,6 +627,141 @@ const Views = {
       <div class="card">
         <div class="card-title">历史打卡记录 · ${sorted.length} 天</div>
         <div class="ci-hist-list">${itemsHtml}</div>
+      </div>
+    `;
+  },
+
+  checkinDetail(date) {
+    const c = Store.getCheckin(date);
+    if (!c) return '<div class="empty-state"><div class="es-text">找不到该日打卡记录</div></div>';
+
+    const note = c.note || '';
+    const noteAI = c.noteAI || null;
+    const gratList = c.gratitude || [];
+    const gratJournal = c.gratitudeJournal || null;
+    const speech = c.speech || null;
+    const tagBadges = (c.tags || []).map(t => `<span class="tag-mini">${this._escape(t)}</span>`).join(' ');
+    const customBadges = (c.customTags || []).map(t => `<span class="tag-mini" style="background:var(--c-coral-light);color:var(--c-coral-dark);">${this._escape(t)}</span>`).join(' ');
+
+    // 状态评分
+    const scoreHtml = `
+      <div class="ci-detail-scores">
+        <div class="ci-detail-score" style="color:var(--c-rose-dark);"><span>情绪</span><b>${c.mood ?? '-'}</b></div>
+        <div class="ci-detail-score" style="color:var(--c-emerald-dark);"><span>能量</span><b>${c.energy ?? '-'}</b></div>
+        <div class="ci-detail-score"><span>睡眠</span><b>${c.sleep ?? '-'}h</b></div>
+      </div>`;
+
+    // 情绪标签
+    const tagsHtml = tagBadges || customBadges
+      ? `<div class="ci-detail-tags">${tagBadges}${customBadges}</div>`
+      : '';
+
+    // AI 触动点分析
+    const noteAIHtml = noteAI ? `
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">✨ AI 触动点分析</div>
+        <div class="rd-ai-result">
+          ${noteAI.insight ? `
+            <div class="rd-ai-section">
+              <div class="rd-ai-label">情绪洞察</div>
+              <div class="rd-ai-text">${this._escape(noteAI.insight)}</div>
+            </div>` : ''}
+          ${noteAI.trigger ? `
+            <div class="rd-ai-section">
+              <div class="rd-ai-label">触发模式</div>
+              <div class="rd-ai-text">${this._escape(noteAI.trigger)}</div>
+            </div>` : ''}
+          ${noteAI.suggestedDimension ? `
+            <div class="rd-ai-section">
+              <div class="rd-ai-label">关联维度建议</div>
+              <div class="rd-ai-text">${this._escape(noteAI.suggestedDimension)}</div>
+            </div>` : ''}
+        </div>
+      </div>` : '';
+
+    // 感恩条目
+    const gratEntriesHtml = gratList.length ? `
+      <div class="card" style="margin-bottom:16px; border-left:3px solid var(--c-olive);">
+        <div class="card-title">🙏 感恩条目 · ${gratList.length} 条</div>
+        ${gratList.map((g, i) => `<div class="ci-detail-grat">
+          <span class="ci-detail-grat-num">${i + 1}</span>
+          <span>${this._escape(g)}</span>
+        </div>`).join('')}
+      </div>` : '';
+
+    // AI 感恩日记
+    const gratJournalHtml = gratJournal ? `
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">✨ AI 整理 · 每日感恩日记</div>
+        <div class="grat-journal">
+          ${gratJournal.summary ? `<div class="gj-summary" style="font-size:13px;line-height:1.7;white-space:pre-wrap;">${this._escape(gratJournal.summary)}</div>` : ''}
+          ${(gratJournal.entries || []).map(e => `
+            <div class="gj-entry" style="margin-top:10px;">
+              <div class="gj-raw" style="font-size:12px;color:var(--text-tertiary);">${this._escape(e.raw || '')}</div>
+              <div style="font-size:13px;color:var(--text-primary);margin-top:2px;">${this._escape(e.insight || '')}</div>
+            </div>
+          `).join('')}
+          ${(gratJournal.shiningPoints || []).length ? `
+            <div class="gj-shine-title" style="margin-top:12px;">✨ 被看见的闪光点</div>
+            ${gratJournal.shiningPoints.map(s => `<div class="gj-shine">${this._escape(s)}</div>`).join('')}
+          ` : ''}
+        </div>
+      </div>` : '';
+
+    // 表达力训练
+    const speechHtml = speech && (speech.text || speech.topic) ? `
+      <div class="card" style="margin-bottom:16px; border-left:3px solid var(--c-purple);">
+        <div class="card-title">🎙️ 表达力训练</div>
+        <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:8px;">主题：<b>${this._escape(speech.topic || '')}</b>${speech.hint ? ' · ' + this._escape(speech.hint) : ''}</div>
+        ${speech.text ? `<div style="font-size:13px;line-height:1.8;white-space:pre-wrap;color:var(--text-primary);margin-bottom:10px;">${this._escape(speech.text)}</div>` : ''}
+        ${speech.aiAnalysis ? `
+          <div class="rd-ai-result">
+            ${speech.aiAnalysis.structure ? `<div class="rd-ai-section"><div class="rd-ai-label">📐 结构分析</div><div class="rd-ai-text">${this._escape(speech.aiAnalysis.structure)}</div></div>` : ''}
+            ${speech.aiAnalysis.highlights && speech.aiAnalysis.highlights.length ? `<div class="rd-ai-section"><div class="rd-ai-label">✨ 表达亮点</div>${speech.aiAnalysis.highlights.map(h => `<div class="rd-ai-question">${this._escape(h)}</div>`).join('')}</div>` : ''}
+            ${speech.aiAnalysis.improvements && speech.aiAnalysis.improvements.length ? `<div class="rd-ai-section"><div class="rd-ai-label">🔧 改进建议</div>${speech.aiAnalysis.improvements.map(imp => `<div class="rd-ai-question">${this._escape(imp)}</div>`).join('')}</div>` : ''}
+            ${speech.aiAnalysis.suggestedOutline ? `<div class="rd-ai-section"><div class="rd-ai-label">📋 建议重构提纲</div><div class="rd-ai-text" style="white-space:pre-line;">${this._escape(speech.aiAnalysis.suggestedOutline)}</div></div>` : ''}
+          </div>` : ''}
+      </div>` : '';
+
+    const hasContent = note || noteAI || gratList.length || gratJournal || (speech && (speech.text || speech.topic));
+
+    return `
+      <div class="page-header">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <button class="btn btn-sm" data-action="close-checkin-detail">← 返回</button>
+          <div>
+            <h1>${this._fmtDate(date)} ${this._weekday(date)}</h1>
+            <div class="desc">打卡详情</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          ${scoreHtml}
+          <button class="btn btn-sm" data-action="edit-checkin" data-date="${date}">✎ 修改</button>
+        </div>
+        ${tagsHtml}
+      </div>
+
+      ${note ? `
+        <div class="card" style="margin-bottom:16px; border-left:3px solid var(--c-coral);">
+          <div class="card-title">今日最触动的一件事</div>
+          <div style="font-size:14px; line-height:1.8; color:var(--text-primary); white-space:pre-wrap;">${this._escape(note)}</div>
+        </div>` : ''}
+
+      ${noteAIHtml}
+      ${gratEntriesHtml}
+      ${gratJournalHtml}
+      ${speechHtml}
+
+      ${!hasContent ? `
+        <div class="card">
+          <div class="empty-state"><div class="es-text">该日仅记录了状态评分，未写触动事件或感恩条目</div></div>
+        </div>` : ''}
+
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button class="btn btn-sm" data-action="close-checkin-detail">← 返回打卡列表</button>
       </div>
     `;
   },
