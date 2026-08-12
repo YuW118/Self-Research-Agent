@@ -1712,7 +1712,18 @@ const Views = {
           </div>
           <div class="af-row">
             <label>模型名称</label>
-            <input type="text" data-field="ai-model" placeholder="gpt-4o-mini" value="${this._escape(ai.model || '')}">
+            <input type="text" data-field="ai-model" placeholder="选择或输入模型名称…" list="ai-model-list" value="${this._escape(ai.model || '')}">
+            <datalist id="ai-model-list">
+              <option value="deepseek-chat">DeepSeek V3</option>
+              <option value="deepseek-reasoner">DeepSeek R1</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+              <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+              <option value="qwen-plus">通义千问 Plus</option>
+              <option value="moonshot-v1-8k">Moonshot v1</option>
+            </datalist>
           </div>
         </div>
         <div style="margin-top:12px;">
