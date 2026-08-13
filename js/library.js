@@ -399,6 +399,7 @@
             <option value="hard" ${state.bookSort === 'hard' ? 'selected' : ''}>精深优先</option>
           </select>
           <div class="status-filter" id="lib-book-status-seg">
+            <button data-status="all" class="${state.bookStatus === 'all' ? 'active' : ''}">全部</button>
             <button data-status="want" class="${state.bookStatus === 'want' ? 'active' : ''}">想读</button>
             <button data-status="reading" class="${state.bookStatus === 'reading' ? 'active' : ''}">在读</button>
             <button data-status="done" class="${state.bookStatus === 'done' ? 'active' : ''}">已读</button>
