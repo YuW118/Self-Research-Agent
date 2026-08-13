@@ -399,7 +399,6 @@
             <option value="hard" ${state.bookSort === 'hard' ? 'selected' : ''}>精深优先</option>
           </select>
           <div class="status-filter" id="lib-book-status-seg">
-            <button data-status="all" class="${state.bookStatus === 'all' ? 'active' : ''}">全部</button>
             <button data-status="want" class="${state.bookStatus === 'want' ? 'active' : ''}">想读</button>
             <button data-status="reading" class="${state.bookStatus === 'reading' ? 'active' : ''}">在读</button>
             <button data-status="done" class="${state.bookStatus === 'done' ? 'active' : ''}">已读</button>
@@ -590,7 +589,7 @@
           </div>
           <div class="lib-modal-body">
             <div class="status-row">
-              ${['want', 'reading', 'done'].map(s => `<button class="status-btn ${st === s ? 'active' : ''}" data-lib-action="set-status" data-id="${id}" data-status="${s}">${LIB_STATUS_MAP[s]}</button>`).join('')}
+              ${['want', 'reading', 'done', 'none'].map(s => `<button class="status-btn ${st === s ? 'active' : ''}" data-lib-action="set-status" data-id="${id}" data-status="${s}">${LIB_STATUS_MAP[s]}</button>`).join('')}
               <span class="lib-hint" style="margin-left:auto;">已读计入首页"已读完书籍"</span>
             </div>
             <div class="detail-tabs" id="lib-detail-tabs">
@@ -1201,9 +1200,16 @@
       return;
     }
     if (t.dataset.status !== undefined && t.closest('#lib-book-status-seg')) {
-      document.querySelectorAll('#lib-book-status-seg button').forEach(x => x.classList.remove('active'));
-      t.classList.add('active');
-      state.bookStatus = t.dataset.status;
+      // 点击已激活按钮 → 回到全部（清除过滤）
+      const targetStatus = t.dataset.status;
+      const isToggleOff = state.bookStatus === targetStatus;
+      state.bookStatus = isToggleOff ? 'all' : targetStatus;
+      // 直接操作 DOM active class
+      document.querySelectorAll('#lib-book-status-seg button').forEach(x => {
+        if (isToggleOff) x.classList.remove('active');
+        else if (x.dataset.status === state.bookStatus) x.classList.add('active');
+        else x.classList.remove('active');
+      });
       renderBooks();
       return;
     }
