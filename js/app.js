@@ -140,6 +140,14 @@ const App = {
       `第 ${stats.daysSinceStart} 天<br>${stats.exploredCount}/20 维度`;
   },
 
+  // 如果当前在首页，重新渲染（供 Library 等模块调用）
+  renderDashboard() {
+    if (this.state.page === 'dashboard') {
+      const main = document.getElementById('main');
+      main.innerHTML = Views.dashboard();
+    }
+  },
+
   // === Events ===
   bindEvents() {
     // Sidebar nav
@@ -185,12 +193,24 @@ const App = {
       else if (e.target.id === 'gratitudeInput') { e.preventDefault(); this.addGratitude(); }
     });
 
-    // File input for reading photo OCR + vision board image upload
+    // File input for reading photo OCR + vision board image upload + paper-book select
     document.getElementById('main').addEventListener('change', (e) => {
       if (e.target.id === 'readingPhotoInput' && e.target.files && e.target.files.length) {
         this.handleReadingPhotos(Array.from(e.target.files));
       } else if (e.target.classList && e.target.classList.contains('vb-file-input') && e.target.files.length) {
         this.handleVisionImages(e.target.dataset.theme, e.target.files);
+      } else if (e.target.dataset && e.target.dataset.field === 'rd-paper-book') {
+        // 论文来源 → 选书籍库的书 → 自动填入标题和作者
+        const bookId = e.target.value;
+        if (bookId && window.Library && window.Library.getBook) {
+          const b = window.Library.getBook(bookId);
+          if (b) {
+            const titleEl = document.querySelector('[data-field="rd-title"]');
+            const authorEl = document.querySelector('[data-field="rd-author"]');
+            if (titleEl && !titleEl.value.trim()) titleEl.value = b.title;
+            if (authorEl && !authorEl.value.trim()) authorEl.value = b.author || '';
+          }
+        }
       }
     });
 
@@ -212,6 +232,14 @@ const App = {
   },
 
   handleClick(e) {
+    // Library 模块的点击事件（data-lib-action）
+    const libTarget = e.target.closest('[data-lib-action]');
+    if (libTarget) {
+      if (window.Library && window.Library.handleLibraryClick) {
+        window.Library.handleLibraryClick(e);
+      }
+      return;
+    }
     const target = e.target.closest('[data-action]');
     if (!target) return;
     const action = target.dataset.action;
@@ -243,6 +271,11 @@ const App = {
       case 'ai-insight': this.aiInsight(); break;
       case 'change-speech-topic': this.changeSpeechTopic(); break;
       case 'ai-speech': this.aiSpeechAnalysis(); break;
+      case 'ai-polish-note': this.aiPolishNote(); break;
+      case 'ai-polish-gratitude': this.aiPolishGratitude(); break;
+      case 'ai-polish-speech': this.aiPolishSpeech(); break;
+      case 'accept-polish': this.acceptPolish(target.dataset.target); break;
+      case 'reject-polish': this.rejectPolish(target.dataset.target); break;
       case 'refresh-heal-quote': this.refreshHealQuote(); break;
       case 'toggle-accordion': this.toggleAccordion(target.dataset.module); break;
       case 'select-module': this.selectModule(target.dataset.module); break;
@@ -331,6 +364,7 @@ const App = {
         }
         break;
       case 'readings': main.innerHTML = Views.readings(this.state.readingView, this.state.readingEditId); break;
+      case 'library': main.innerHTML = Views.library(); break;
       case 'research':
         if (this.state.dimSnapshotIdx != null) {
           main.innerHTML = Views._dimSnapshotView(this.state.researchDimension, this.state.dimSnapshotIdx);
@@ -345,6 +379,14 @@ const App = {
     }
 
     this.renderSidebar();
+
+    // Library 模块渲染后需要 mount + bindEvents 初始化
+    if (page === 'library' && window.Library) {
+      const mainEl = document.getElementById('main');
+      if (window.Library.mount) window.Library.mount(mainEl);
+      if (window.Library.bindEvents) window.Library.bindEvents(mainEl);
+    }
+
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
 
@@ -727,6 +769,151 @@ const App = {
     }
   },
 
+  /* ==================== AI 润色（通用方法）==================== */
+  _renderPolishPreview(target, originalText, polishedText, extraNote) {
+    const wrap = document.getElementById(`polish-preview-${target}`);
+    if (!wrap) return;
+    wrap.innerHTML = `
+      <div class="polish-card">
+        <div class="polish-label">✨ AI 润色建议</div>
+        <div class="polish-diff">
+          <div class="polish-before"><div class="pd-tag">原文</div><div class="pd-text">${Views._escape(originalText)}</div></div>
+          <div class="polish-after"><div class="pd-tag">润色</div><div class="pd-text">${Views._escape(polishedText)}</div></div>
+        </div>
+        ${extraNote ? `<div class="polish-note">${Views._escape(extraNote)}</div>` : ''}
+        <div class="polish-actions">
+          <button class="btn btn-ai btn-sm" data-action="accept-polish" data-target="${target}">✓ 采用润色</button>
+          <button class="btn btn-sm" data-action="reject-polish" data-target="${target}">保留原文</button>
+        </div>
+      </div>
+    `;
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  },
+
+  async aiPolishNote() {
+    const noteEl = document.querySelector('[data-field="note"]');
+    const original = noteEl ? noteEl.value.trim() : '';
+    if (!original) { this.toast('请先写下今天触动你的事'); return; }
+    if (original.length < 5) { this.toast('内容太短，无需润色'); return; }
+    try {
+      this.toast('✨ AI 润色中…');
+      const content = await AIClient.complete([
+        { role: 'system', content: '你是写作教练。用户写了一段触动自己的事，但表达可能不够清晰或有错别字。请帮用户润色这段文字，要求：(1)保持用户原意和个人感受不丢失；(2)修缮语法错字、理顺句式；(3)让表达更生动有画面感，但不要过度文学化；(4)长度变化不超过 50%；(5)只输出润色后的文字本身，不要任何解释、引号或 markdown。' },
+        { role: 'user', content: original }
+      ]);
+      const polished = (content || '').trim().replace(/^["「『]|["」』]$/g, '');
+      if (!polished || polished === original) {
+        this.toast('原文已经很棒，无需润色');
+        return;
+      }
+      this._pendingPolish = { target: 'note', original, polished };
+      this._renderPolishPreview('note', original, polished);
+    } catch (err) {
+      console.error('aiPolishNote failed:', err);
+      this.toast('AI 润色失败：' + err.message);
+    }
+  },
+
+  async aiPolishGratitude() {
+    if (!this.state.gratitudeEntries || this.state.gratitudeEntries.length === 0) {
+      this.toast('请先添加几条感恩片段'); return;
+    }
+    const entries = this.state.gratitudeEntries;
+    const list = entries.map((e, i) => `${i + 1}. ${e}`).join('\n');
+    try {
+      this.toast('✨ AI 润色中…');
+      const content = await AIClient.complete([
+        { role: 'system', content: '你是写作教练。用户记录了几条感恩片段，可能表达较口语化。请帮用户润色这些条目，要求：(1)保持每条核心意思不变；(2)每条修缮为更通顺、温暖但不油腻的句子；(3)用 JSON 数组输出润色后的条目（顺序与原文一致），不要 markdown 不要任何解释文字。例：[\\"润色1\\",\\"润色2\\"]' },
+        { role: 'user', content: list }
+      ], { json: true });
+      let polished;
+      try { polished = JSON.parse(AIClient._clean(content)); } catch { polished = null; }
+      if (!Array.isArray(polished) || polished.length !== entries.length) {
+        this.toast('润色失败，请稍后再试'); return;
+      }
+      const allSame = polished.every((p, i) => p === entries[i]);
+      if (allSame) { this.toast('原文已经很棒，无需润色'); return; }
+      this._pendingPolish = { target: 'gratitude', original: [...entries], polished };
+      // 渲染预览
+      const wrap = document.getElementById('polish-preview-gratitude');
+      if (!wrap) return;
+      wrap.innerHTML = `
+        <div class="polish-card">
+          <div class="polish-label">✨ AI 润色建议 · 感恩条目</div>
+          <div class="polish-diff" style="flex-direction:column;">
+            ${entries.map((orig, i) => `
+              <div class="polish-grat-row">
+                <div class="polish-before"><div class="pd-tag">原文</div><div class="pd-text">${Views._escape(orig)}</div></div>
+                <div class="polish-arrow">→</div>
+                <div class="polish-after"><div class="pd-tag">润色</div><div class="pd-text">${Views._escape(polished[i])}</div></div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="polish-actions">
+            <button class="btn btn-ai btn-sm" data-action="accept-polish" data-target="gratitude">✓ 全部采用</button>
+            <button class="btn btn-sm" data-action="reject-polish" data-target="gratitude">保留原文</button>
+          </div>
+        </div>
+      `;
+      wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (err) {
+      console.error('aiPolishGratitude failed:', err);
+      this.toast('AI 润色失败：' + err.message);
+    }
+  },
+
+  async aiPolishSpeech() {
+    const textEl = document.querySelector('[data-field="speech"]');
+    const original = textEl ? textEl.value.trim() : '';
+    if (!original || original.length < 20) { this.toast('请先讲一段话（至少 20 字）'); return; }
+    try {
+      this.toast('✨ AI 润色中…');
+      const content = await AIClient.complete([
+        { role: 'system', content: '你是演讲教练。用户做了一段主题演讲的语音转文字稿，可能有口头禅、口语化断句、逻辑不清。请帮用户润色成一篇结构清晰、表达流畅的演讲稿。要求：(1)保留用户的核心观点和个人风格；(2)去掉"那个、然后、就是"等口头禅；(3)按"开场引入→主体阐述→总结收尾"的结构理顺；(4)只输出润色后的演讲稿本身，不要任何解释、引号或 markdown。' },
+        { role: 'user', content: original }
+      ]);
+      const polished = (content || '').trim().replace(/^["「『]|["」』]$/g, '');
+      if (!polished || polished === original) {
+        this.toast('原文已经很棒，无需润色');
+        return;
+      }
+      this._pendingPolish = { target: 'speech', original, polished };
+      this._renderPolishPreview('speech', original, polished);
+    } catch (err) {
+      console.error('aiPolishSpeech failed:', err);
+      this.toast('AI 润色失败：' + err.message);
+    }
+  },
+
+  acceptPolish(target) {
+    const p = this._pendingPolish;
+    if (!p || p.target !== target) { this.toast('没有待采用的润色'); return; }
+    if (target === 'note') {
+      const noteEl = document.querySelector('[data-field="note"]');
+      if (noteEl) noteEl.value = p.polished;
+      this.persistCheckin();
+    } else if (target === 'gratitude') {
+      this.state.gratitudeEntries = [...p.polished];
+      this._renderGratitude();
+      this.persistCheckin();
+    } else if (target === 'speech') {
+      const speechEl = document.querySelector('[data-field="speech"]');
+      if (speechEl) speechEl.value = p.polished;
+      this.persistCheckin();
+    }
+    const wrap = document.getElementById(`polish-preview-${target}`);
+    if (wrap) wrap.innerHTML = '';
+    this._pendingPolish = null;
+    this.toast('✓ 已采用润色');
+  },
+
+  rejectPolish(target) {
+    const wrap = document.getElementById(`polish-preview-${target}`);
+    if (wrap) wrap.innerHTML = '';
+    this._pendingPolish = null;
+    this.toast('已保留原文');
+  },
+
   async aiNoteAnalysis() {
     const noteEl = document.querySelector('[data-field="note"]');
     const note = noteEl ? noteEl.value.trim() : '';
@@ -1051,6 +1238,11 @@ const App = {
       customInput.style.display = source === 'custom' ? '' : 'none';
       if (source !== 'custom') customInput.value = '';
     }
+    // paper 源时显示书籍选择器
+    const paperBookWrap = document.getElementById('rd-paper-book-wrap');
+    if (paperBookWrap) {
+      paperBookWrap.style.display = source === 'paper' ? '' : 'none';
+    }
   },
 
   capturePhoto() {
@@ -1256,6 +1448,7 @@ const App = {
     const reflectionEl = document.querySelector('[data-field="rd-reflection"]');
     const dimEl = document.querySelector('[data-field="rd-dimension"]');
     const sourceLabelEl = document.querySelector('[data-field="rd-source-label"]');
+    const relatedBookEl = document.querySelector('[data-field="rd-related-book"]');
 
     if (!titleEl || !titleEl.value.trim()) {
       this.toast('请填写标题');
@@ -1272,6 +1465,7 @@ const App = {
       resonance: resonanceEl ? resonanceEl.value : '',
       reflection: reflectionEl ? reflectionEl.value : '',
       relatedDimension: dimEl && dimEl.value ? parseInt(dimEl.value) : null,
+      relatedBook: relatedBookEl && relatedBookEl.value ? relatedBookEl.value : null,
       aiAnalysis: this.state.readingAITemp || null,
       images: Array.isArray(this.state.readingImages) ? this.state.readingImages.slice() : []
     };

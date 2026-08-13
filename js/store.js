@@ -591,6 +591,7 @@ const Store = {
       patternCount: patterns.length,
       timelineCount: timeline.length,
       readingCount: this.getReadings().length,
+      readBookCount: (window.Library && typeof window.Library.countReadBooks === 'function') ? window.Library.countReadBooks() : 0,
       visionImageCount: this.getVisionImageCount(),
       visionThemeCount: this.getVisionBoard().themes.length,
       hasTodayCheckin: !!this.getTodayCheckin()

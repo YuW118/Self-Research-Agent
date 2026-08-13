@@ -20,6 +20,7 @@ const HEALING_QUOTES = [
 
 const SOURCE_TYPES = [
   { id: 'book', label: '书籍', emoji: '📖', color: 'olive' },
+  { id: 'paper', label: '论文', emoji: '📄', color: 'blue' },
   { id: 'wechat', label: '公众号', emoji: '💬', color: 'blue' },
   { id: 'bilibili', label: 'B站', emoji: '📺', color: 'purple' },
   { id: 'douyin', label: '抖音', emoji: '🎬', color: 'amber' },
@@ -37,7 +38,8 @@ const Views = {
     insights: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 16V8M9 16V4M14 16v-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
     timeline: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.3"/><path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     vision: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="14" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="14" r="1" fill="currentColor"/><circle cx="14" cy="14" r="1" fill="currentColor"/></svg>',
-    settings: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M15.8 4.2l-1.4 1.4M5.6 14.4l-1.4 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+    settings: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M15.8 4.2l-1.4 1.4M5.6 14.4l-1.4 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+    library: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 4v12M4 4c1.5 0 3 .5 4 1.5v12c-1-1-2.5-1.5-4-1.5M16 4v12M16 4c-1.5 0-3 .5-4 1.5v12c1-1 2.5-1.5 4-1.5" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
   },
 
   navItems: [
@@ -45,6 +47,7 @@ const Views = {
     { id: 'vision', label: '愿景板', icon: 'vision' },
     { id: 'checkin', label: '每日打卡', icon: 'checkin' },
     { id: 'research', label: '维度研究', icon: 'research' },
+    { id: 'library', label: '知识库', icon: 'library' },
     { id: 'readings', label: '阅读共鸣', icon: 'readings' },
     { id: 'profile', label: '自我画像', icon: 'profile' },
     { id: 'insights', label: '模式洞察', icon: 'insights' },
@@ -281,7 +284,7 @@ const Views = {
         </div>
       </div>
 
-      <div class="grid grid-3" style="margin-bottom:16px;">
+      <div class="grid grid-4" style="margin-bottom:16px;">
         <div class="stat-card">
           <div class="stat-value">${stats.daysSinceStart}<span class="stat-unit">天</span></div>
           <div class="stat-label">累计研究</div>
@@ -289,6 +292,10 @@ const Views = {
         <div class="stat-card">
           <div class="stat-value">${stats.exploredCount}<span class="stat-unit">/20</span></div>
           <div class="stat-label">已探索维度</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer;" data-action="navigate" data-page="library">
+          <div class="stat-value">${stats.readBookCount}<span class="stat-unit">本</span></div>
+          <div class="stat-label">已读完书籍</div>
         </div>
         <div class="stat-card">
           <div class="stat-value">${stats.totalCheckins}<span class="stat-unit">次</span></div>
@@ -333,6 +340,15 @@ const Views = {
         ${tlHtml}
       </div>
     `;
+  },
+
+  // === Knowledge Library (知识库) ===
+  library() {
+    const html = (window.Library && window.Library.renderLibrary)
+      ? window.Library.renderLibrary()
+      : '<div class="empty-state"><div class="es-text">知识库模块加载中…</div></div>';
+    // mount 在 App.route 中调用，这里只返回 HTML 骨架
+    return html;
   },
 
   // === Check-in ===
@@ -445,9 +461,11 @@ const Views = {
           ${this._voiceBtn('note')}
         </div>
         <div class="grat-actions">
-          <button class="btn btn-ai btn-sm" data-action="ai-note" ${hasAI ? '' : 'disabled'}>✨ AI 分析触动点</button>
+          <button class="btn btn-ai btn-sm" data-action="ai-polish-note" ${hasAI ? '' : 'disabled'}>✨ AI 润色</button>
+          <button class="btn btn-ai btn-sm" data-action="ai-note" ${hasAI ? '' : 'disabled'}>🎯 AI 分析触动点</button>
           ${hasAI ? '' : '<span class="ai-hint">未配置 AI（设置页可配置）</span>'}
         </div>
+        <div id="polish-preview-note"></div>
         ${noteAI ? `
           <div class="rd-ai-result" style="margin-top:8px;">
             <div class="rd-ai-section">
@@ -479,9 +497,11 @@ const Views = {
         </div>
         <div class="grat-list" id="gratitudeList">${gratHtml}</div>
         <div class="grat-actions">
-          <button class="btn btn-ai btn-sm" data-action="ai-gratitude" ${hasAI ? '' : 'disabled'}>✨ AI 整理感恩日记</button>
-          ${hasAI ? '<span class="ai-hint">可一键整理每日感恩日记，总结每条价值、挖掘闪光点，感受世界的丰盛与温暖。</span>' : '<span class="ai-hint">未配置 AI（设置页可配置）</span>'}
+          <button class="btn btn-ai btn-sm" data-action="ai-polish-gratitude" ${hasAI ? '' : 'disabled'}>✨ AI 润色</button>
+          <button class="btn btn-ai btn-sm" data-action="ai-gratitude" ${hasAI ? '' : 'disabled'}>📔 AI 整理感恩日记</button>
+          ${hasAI ? '<span class="ai-hint">先润色让表达更清晰，再让 AI 总结整体感恩感受、挖掘闪光点。</span>' : '<span class="ai-hint">未配置 AI（设置页可配置）</span>'}
         </div>
+        <div id="polish-preview-gratitude"></div>
         ${journalHtml}
       </div>
 
@@ -519,9 +539,11 @@ const Views = {
         </div>
 
         <div class="grat-actions">
-          <button class="btn btn-ai btn-sm" data-action="ai-speech" ${hasAI ? '' : 'disabled'}>✨ AI 梳理分析</button>
-          ${hasAI ? '<span class="ai-hint">AI 会分析你的表述结构、亮点与改进空间，帮你持续提升表达力</span>' : '<span class="ai-hint">未配置 AI（设置页可配置）</span>'}
+          <button class="btn btn-ai btn-sm" data-action="ai-polish-speech" ${hasAI ? '' : 'disabled'}>✨ AI 润色</button>
+          <button class="btn btn-ai btn-sm" data-action="ai-speech" ${hasAI ? '' : 'disabled'}>🎯 AI 梳理分析表达力</button>
+          ${hasAI ? '<span class="ai-hint">先润色让结构更清晰，再分析你的表达结构、亮点与改进空间。</span>' : '<span class="ai-hint">未配置 AI（设置页可配置）</span>'}
         </div>
+        <div id="polish-preview-speech"></div>
 
         <div id="speechAIResult">
           ${speechAI ? `
@@ -879,7 +901,16 @@ const Views = {
     ).join('');
 
     const isCustom = currentSource === 'custom';
+    const isPaper = currentSource === 'paper';
     const customLabel = data.sourceType === 'custom' ? (data.sourceLabel || '') : '';
+
+    // 从 Library 模块获取书籍列表，供"关联图书"和"论文→选书"使用
+    const libBooks = (window.Library && window.Library.getBooksForOther) ? window.Library.getBooksForOther() : [];
+
+    // 关联图书下拉
+    const bookOptions = libBooks.map(b =>
+      `<option value="${b.id}" ${data.relatedBook === b.id ? 'selected' : ''}>${this._escape(b.title)}${b.author ? ' — ' + this._escape(b.author) : ''}</option>`
+    ).join('');
 
     const dimOptions = MODULES.map(m => {
       const dims = getDimensionsByModule(m.id);
@@ -927,6 +958,14 @@ const Views = {
 
       <div class="card" style="margin-bottom:16px;">
         <div class="card-title">基本信息</div>
+        ${libBooks.length ? `
+        <div id="rd-paper-book-wrap" style="margin-bottom:8px; ${isPaper ? '' : 'display:none;'}">
+          <label style="font-size:12px; color:var(--text-tertiary); display:block; margin-bottom:4px;">从书籍库选择（可选，选中后自动填入标题和作者）</label>
+          <select data-field="rd-paper-book" style="margin-bottom:8px;">
+            <option value="">— 不关联书籍，手动输入 —</option>
+            ${libBooks.map(b => `<option value="${b.id}">${this._escape(b.title)}${b.author ? ' — ' + this._escape(b.author) : ''}</option>`).join('')}
+          </select>
+        </div>` : ''}
         <input type="text" data-field="rd-title" placeholder="标题（书名/文章名/视频标题）" value="${this._escape(data.title || '')}" style="margin-bottom:8px;">
         <input type="text" data-field="rd-author" placeholder="作者（可选）" value="${this._escape(data.author || '')}">
       </div>
@@ -978,6 +1017,16 @@ const Views = {
         </select>
       </div>
 
+      ${libBooks.length ? `
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">关联图书</div>
+        <select data-field="rd-related-book">
+          <option value="">不关联</option>
+          ${bookOptions}
+        </select>
+        <div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">选择后，这条共鸣会出现在书籍详情的「阅读共鸣」tab 中</div>
+      </div>` : ''}
+
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div class="card-title" style="margin-bottom:0;">AI 深度分析</div>
@@ -1004,6 +1053,9 @@ const Views = {
     const dim = r.relatedDimension ? getDimension(r.relatedDimension) : null;
     const dimMod = dim ? getModule(dim.module) : null;
     const imgs = Array.isArray(r.images) ? r.images : [];
+
+    // 关联图书
+    const relatedBook = r.relatedBook ? (window.Library && window.Library.getBook ? window.Library.getBook(r.relatedBook) : null) : null;
 
     const aiHtml = r.aiAnalysis ? `
       <div class="card" style="margin-bottom:16px;">
@@ -1050,6 +1102,7 @@ const Views = {
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="rd-type tag-${st.color}">${st.emoji} ${srcLabel}</span>
             ${dim ? `<span class="rd-dim tag-${dimMod.color}">关联: ${dim.name}</span>` : ''}
+            ${relatedBook ? `<span class="rd-dim tag-olive">📖 ${this._escape(relatedBook.title)}</span>` : ''}
           </div>
           <div style="display:flex; gap:6px;">
             <button class="btn btn-sm" data-action="edit-reading" data-id="${id}">✎ 修改</button>

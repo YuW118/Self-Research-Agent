@@ -1324,6 +1324,92 @@ textarea { min-height: 80px; line-height: 1.6; }
 }
 .grat-item .gi-x:hover { color: var(--c-coral-dark); }
 .grat-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* AI 润色预览卡片 */
+.polish-card {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, var(--bg-page), #F8F4EC);
+  border: 0.5px solid var(--c-olive);
+  border-radius: var(--radius);
+}
+.polish-card .polish-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-olive-dark);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.polish-card .polish-diff {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 10px;
+}
+.polish-card .polish-before,
+.polish-card .polish-after {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 0.5px solid var(--border);
+  position: relative;
+}
+.polish-card .polish-after {
+  background: linear-gradient(180deg, #FFFEF9 0%, var(--bg-card) 100%);
+  border-color: var(--c-olive);
+}
+.polish-card .pd-tag {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+.polish-card .polish-after .pd-tag { color: var(--c-olive-dark); }
+.polish-card .pd-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.polish-card .polish-arrow {
+  align-self: center;
+  font-size: 16px;
+  color: var(--c-olive);
+}
+.polish-card .polish-note {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border-radius: 4px;
+  border-left: 2px solid var(--c-olive);
+}
+.polish-card .polish-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.polish-card .polish-grat-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 0.5px dashed var(--border);
+}
+.polish-card .polish-grat-row:last-child { border-bottom: none; }
+.polish-card .polish-grat-row .polish-before,
+.polish-card .polish-grat-row .polish-after {
+  flex: 1;
+  min-width: 0;
+}
 .grat-journal {
   margin-top: 14px;
   padding: 14px 16px;
