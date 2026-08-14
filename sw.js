@@ -3,7 +3,7 @@
  * PWA offline support - network-first for JS/CSS, cache-first for others
  */
 
-const CACHE_NAME = 'self-research-v35';
+const CACHE_NAME = 'self-research-v36';
 const ASSETS = [
   './',
   './index.html',

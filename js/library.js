@@ -78,6 +78,91 @@
     if (typeof b.cover === 'string') return b.cover; // 遗留 data URL 或 OpenLibrary 远程 URL
     return null;
   }
+
+  // 封面配色（与 css/library.css --lib-* 一致，SVG 不能读 CSS 变量需内联）
+  const LIB_COVER_COLORS = {
+    humanity:   { main: '#D4A88E', light: '#F5E6DE', dark: '#B88A70' },
+    economy:    { main: '#C4A35A', light: '#F5EDDA', dark: '#A68A40' },
+    science:    { main: '#7B9E87', light: '#E8F0EB', dark: '#5E7D6A' },
+    history:    { main: '#6B8294', light: '#E5EBF0', dark: '#556B7D' },
+    data:       { main: '#9B9476', light: '#ECEAE0', dark: '#7D7660' },
+    philosophy: { main: '#C9A0A0', light: '#F2E5E5', dark: '#A68282' }
+  };
+
+  // 程序化生成书籍封面 SVG（2:3 比例，240×360 viewBox）
+  // 使用书籍数据：领域配色、书名、作者、思维导图分支概念
+  function generateCoverSVG(b, domain) {
+    const c = LIB_COVER_COLORS[domain.id] || LIB_COVER_COLORS.humanity;
+    const title = (b.title || '').trim() || '未命名';
+    const author = (b.author || '').trim() || '未知作者';
+    const concepts = ((b.mindmap && b.mindmap.children) || []).slice(0, 3)
+      .map(x => (x.label || '').trim()).filter(Boolean);
+    const uid = String(b.id || 'x').replace(/[^a-z0-9]/gi, '');
+
+    // 标题字号 & 换行
+    const titleLen = title.length;
+    const fontSize = titleLen > 6 ? 30 : titleLen > 4 ? 38 : 44;
+    let titleParts = [title];
+    if (titleLen > 4) {
+      const mid = Math.ceil(titleLen / 2);
+      let bp = mid;
+      for (let i = mid - 1; i >= Math.max(1, mid - 3); i--) {
+        if (/[，。、！？：；,\.!?;:\s]/.test(title[i])) { bp = i + 1; break; }
+      }
+      if (bp > 0 && bp < titleLen) titleParts = [title.slice(0, bp), title.slice(bp)];
+    }
+    const lineH = fontSize + 8;
+    const titleYBase = titleParts.length > 1 ? 150 : 180;
+    const titleTspans = titleParts.map((p, i) =>
+      `<tspan x="120" dy="${i === 0 ? 0 : lineH}">${esc(p)}</tspan>`
+    ).join('');
+
+    // 作者位置
+    const authorY = titleYBase + lineH * (titleParts.length - 1) + 50;
+
+    // 概念芯片
+    const chipsData = concepts.slice(0, 3).map(con => ({
+      label: con.length > 5 ? con.slice(0, 4) + '…' : con,
+      w: Math.min(78, 18 + con.length * 13)
+    }));
+    const chipsGap = 6;
+    const chipsTotalW = chipsData.reduce((s, c2) => s + c2.w, 0)
+      + (chipsData.length - 1) * chipsGap;
+    let cursorX = (240 - chipsTotalW) / 2;
+    const chipsSvg = chipsData.map(ch => {
+      const x = cursorX;
+      cursorX += ch.w + chipsGap;
+      return `<rect x="${x}" y="306" width="${ch.w}" height="22" rx="11" fill="rgba(255,255,255,0.94)"/>` +
+             `<text x="${x + ch.w / 2}" y="321" text-anchor="middle" font-size="10" fill="${c.dark}" font-weight="500">${esc(ch.label)}</text>`;
+    }).join('');
+
+    return `<svg viewBox="0 0 240 360" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="bg-${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stop-color="${c.light}"/>
+    <stop offset="100%" stop-color="${c.main}"/>
+  </linearGradient>
+  <filter id="ts-${uid}" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.3)"/>
+  </filter>
+</defs>
+<rect width="240" height="360" fill="url(#bg-${uid})"/>
+<circle cx="225" cy="15" r="60" fill="${c.dark}" opacity="0.14"/>
+<circle cx="200" cy="55" r="32" fill="${c.dark}" opacity="0.18"/>
+<circle cx="245" cy="55" r="18" fill="${c.dark}" opacity="0.12"/>
+<circle cx="20" cy="345" r="3" fill="${c.dark}" opacity="0.3"/>
+<circle cx="35" cy="338" r="2" fill="${c.dark}" opacity="0.22"/>
+<rect x="14" y="14" width="118" height="26" rx="13" fill="rgba(255,255,255,0.92)"/>
+<text x="73" y="31" text-anchor="middle" font-size="11" fill="${c.dark}" font-weight="600">${esc(domain.name || '')}</text>
+<line x1="14" y1="50" x2="226" y2="50" stroke="${c.dark}" stroke-width="0.5" opacity="0.3"/>
+<text x="120" y="${titleYBase}" text-anchor="middle" font-family="Georgia, 'Songti SC', SimSun, 'Microsoft YaHei', serif" font-size="${fontSize}" fill="white" font-weight="700" filter="url(#ts-${uid})">${titleTspans}</text>
+<text x="120" y="${authorY}" text-anchor="middle" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="13" fill="rgba(255,255,255,0.92)">${esc(author)}</text>
+<circle cx="120" cy="285" r="1.6" fill="rgba(255,255,255,0.75)"/>
+<circle cx="108" cy="285" r="1.6" fill="rgba(255,255,255,0.5)"/>
+<circle cx="132" cy="285" r="1.6" fill="rgba(255,255,255,0.5)"/>
+${chipsSvg}
+</svg>`;
+  }
   function getPapers() { return LIB_SEED_PAPERS; }
   function getReadSet() { return LibStore.get('paperReadSet', {}); }
   function getBookDomain(id) {
@@ -466,13 +551,24 @@
     const st = getBookStatus(b.id);
     const diff = LIB_DIFF_MAP[b.difficulty] || LIB_DIFF_MAP.medium;
     const cu = coverUrlOf(b);
-    const coverStyle = cu ? `background-image:url('${esc(cu)}');` : `background:var(--lib-${d.color});`;
+    let coverStyle;
+    if (cu) {
+      coverStyle = `background-image:url('${esc(cu)}');`;
+    } else {
+      // 程序化生成高质量 SVG 封面（2:3，含书名/作者/领域/思维导图概念芯片）
+      // 使用 base64 编码避免 CSS 解析器截断 URL 字符串
+      const svg = generateCoverSVG(b, d);
+      const b64 = btoa(unescape(encodeURIComponent(svg)));
+      coverStyle = `background-image:url(data:image/svg+xml;base64,${b64});`;
+    }
     const resonanceCount = getResonanceCountForBook(b.id);
-    return `<div class="book-card" data-lib-action="open-book" data-id="${b.id}">
-      <div class="book-cover ${cu ? 'has-cover' : ''}" style="${coverStyle}">
+    // SVG 封面已自带标题/领域，仅在用户上传封面时显示文字层
+    const textOverlay = cu ? `
         <div class="bc-title">${esc(b.title)}</div>
+        <div class="bc-domain" style="background:var(--lib-${d.color}-dark);">${d.icon} ${d.name}</div>` : '';
+    return `<div class="book-card" data-lib-action="open-book" data-id="${b.id}">
+      <div class="book-cover ${cu ? 'has-cover' : ''} ${cu ? '' : 'auto-cover'}" style="${coverStyle}">${textOverlay}
         ${resonanceCount > 0 ? `<div class="bc-resonance-count">${LIB_Icon.resonance} ${resonanceCount}</div>` : ''}
-        <div class="bc-domain" style="background:var(--lib-${d.color}-dark);">${d.icon} ${d.name}</div>
       </div>
       <div class="book-body">
         <div class="book-title">${esc(b.title)}</div>
@@ -574,7 +670,14 @@
     const d = LIB_DOMAINS.find(x => x.id === (getBookDomain(b.id) || b.domain));
     const st = getBookStatus(b.id);
     const cu = coverUrlOf(b);
-    const coverStyle = cu ? `background-image:url('${esc(cu)}');color:transparent;` : `background:var(--lib-${d.color});`;
+    let coverStyle;
+    if (cu) {
+      coverStyle = `background-image:url('${esc(cu)}');color:transparent;`;
+    } else {
+      const svg = generateCoverSVG(b, d);
+      const b64 = btoa(unescape(encodeURIComponent(svg)));
+      coverStyle = `background-image:url(data:image/svg+xml;base64,${b64});color:transparent;`;
+    }
     const resonanceCount = getResonanceCountForBook(b.id);
     const modal = document.getElementById('lib-book-modal');
     modal.style.display = 'block';
@@ -582,7 +685,7 @@
       <div class="lib-modal-back" data-lib-action="close-modal">
         <div class="lib-modal" data-lib-action="noop">
           <div class="lib-modal-head">
-            <div class="lib-modal-cover ${cu ? 'has-cover' : ''}" style="${coverStyle}">${cu ? '' : esc((b.title || '').slice(0, 4))}</div>
+            <div class="lib-modal-cover ${cu ? 'has-cover' : ''} ${cu ? '' : 'auto-cover'}" style="${coverStyle}"></div>
             <div class="lib-modal-head-title">
               <div class="mh-name">${esc(b.title)}</div>
               <div class="mh-author">${esc(b.author || '未知作者')} · ${d.icon} ${d.name}</div>
@@ -778,7 +881,7 @@
               <div id="lib-ol-results" style="margin-top:8px;"></div>
             </div>
             <div class="cover-uploader">
-              <div class="cu-preview" id="lib-cover-preview" style="${draft._coverDataUrl ? `background-image:url('${esc(draft._coverDataUrl)}');` : `background:var(--lib-${d.color});color:rgba(255,255,255,0.85);`}">${draft._coverDataUrl ? '' : `${esc((draft.title || '书名').slice(0,4))}`}</div>
+              <div class="cu-preview" id="lib-cover-preview" style="${draft._coverDataUrl ? `background-image:url('${esc(draft._coverDataUrl)}');` : `background-image:url(data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(generateCoverSVG({ title: draft.title || '书名', author: draft.author || '', mindmap: null }, d))))});`}"></div>
               <div class="cu-fields">
                 <div class="cu-buttons">
                   <input type="file" id="lib-book-cover-input" accept="image/jpeg,image/png,image/webp">
@@ -786,7 +889,7 @@
                   <button class="lib-btn lib-btn-sm lib-btn-ghost" data-lib-action="clear-cover" ${draft._coverDataUrl ? '' : 'style="display:none;"'}>${LIB_Icon.trash} 清除</button>
                 </div>
                 <div class="cu-hint">仅支持 JPG / PNG / WebP，大小不超过 5MB；建议竖图（2:3）。也可用上方 OpenLibrary 搜索自动获取封面。不设置则使用领域色 + 书名居中。</div>
-                <div class="cu-source" id="lib-cover-source">${draft._coverDataUrl ? '已使用自定义封面' : '当前使用领域色封面'}</div>
+                <div class="cu-source" id="lib-cover-source">${draft._coverDataUrl ? '已使用自定义封面' : '当前使用程序化生成封面（书名 + 领域色 + 装饰）'}</div>
               </div>
             </div>
             <div class="form-row" style="margin-top:16px;"><label>书名 <span style="color:var(--lib-rose-dark);">*</span></label>
@@ -1006,13 +1109,18 @@
         const preview = document.getElementById('lib-cover-preview');
         const d = LIB_DOMAINS.find(x => x.id === state.formDraft.domain) || LIB_DOMAINS[0];
         preview.classList.remove('has-cover');
-        preview.style.backgroundImage = '';
-        preview.style.background = `var(--lib-${d.color})`;
-        preview.style.color = 'rgba(255,255,255,0.85)';
-        preview.textContent = (state.formDraft.title || '书名').slice(0, 4);
+        const svg = generateCoverSVG({
+          title: state.formDraft.title || '书名',
+          author: state.formDraft.author || '',
+          mindmap: null
+        }, d);
+        const b64 = btoa(unescape(encodeURIComponent(svg)));
+        preview.style.backgroundImage = `url(data:image/svg+xml;base64,${b64})`;
+        preview.style.background = '';
+        preview.textContent = '';
         t.style.display = 'none';
         const src = document.getElementById('lib-cover-source');
-        if (src) src.textContent = '当前使用领域色封面';
+        if (src) src.textContent = '当前使用程序化生成封面';
         break;
       }
       case 'save-form-book': {

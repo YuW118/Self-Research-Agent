@@ -119,10 +119,10 @@
 .lib-page .group-head::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
 /* 书籍网格 */
-.lib-page .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.lib-page .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
 .lib-page .book-card { background: var(--bg-card, #FFFFFF); border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; position: relative; }
 .lib-page .book-card:hover { box-shadow: var(--shadow-hover); border-color: var(--border-hover); }
-.lib-page .book-cover { height: 120px; position: relative; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.92); }
+.lib-page .book-cover { aspect-ratio: 2 / 3; position: relative; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.92); background-size: cover; background-position: center; background-repeat: no-repeat; }
 .lib-page .book-cover.has-cover { background-size: cover; background-position: center; background-repeat: no-repeat; }
 .lib-page .book-cover.has-cover .bc-title { text-shadow: 0 1px 4px rgba(0,0,0,0.4); background: rgba(0,0,0,0.15); padding: 6px 14px; border-radius: 4px; }
 .lib-page .book-cover .bc-title { font-family: var(--font-serif); font-size: 15px; font-weight: 600; padding: 0 20px; text-align: center; line-height: 1.4; }
@@ -171,7 +171,7 @@
 .lib-modal-back { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .lib-modal { background: var(--bg-page, #F7F6F4); border-radius: var(--radius-lg); width: 100%; max-width: 760px; max-height: 88vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,0.2); }
 .lib-modal-head { padding: 18px 24px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 14px; position: sticky; top: 0; background: var(--bg-page, #F7F6F4); z-index: 1; }
-.lib-modal-cover { width: 54px; height: 74px; border-radius: 6px; flex-shrink: 0; background-size: cover; background-position: center; background-repeat: no-repeat; background-color: var(--bg-hover, #F0EFED); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.92); font-family: var(--font-serif); font-weight: 600; font-size: 13px; text-align: center; padding: 4px; }
+.lib-modal-cover { width: 64px; height: 96px; aspect-ratio: 2 / 3; border-radius: 6px; flex-shrink: 0; background-size: cover; background-position: center; background-repeat: no-repeat; background-color: var(--bg-hover, #F0EFED); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.92); font-family: var(--font-serif); font-weight: 600; font-size: 13px; text-align: center; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 .lib-modal-cover.has-cover { color: transparent; }
 .lib-modal-head-title { flex: 1; min-width: 0; }
 .lib-modal-head-title .mh-name { font-size: 16px; font-weight: 600; font-family: var(--font-serif); }
@@ -311,14 +311,19 @@
 
 /* 响应式 */
 @media (max-width: 640px) {
-  .lib-page .book-grid { grid-template-columns: repeat(2, 1fr); }
+  .lib-page .book-grid { grid-template-columns: 1fr; gap: 12px; }
+  /* 手机：水平卡片布局，避免 562px 高的竖封面 */
+  .lib-page .book-card { display: flex; flex-direction: row; padding: 0; gap: 12px; }
+  .lib-page .book-card .book-cover { width: 100px; height: 150px; flex-shrink: 0; aspect-ratio: auto; }
+  .lib-page .book-card .book-body { flex: 1; min-width: 0; padding: 10px 12px 10px 0; }
+  .lib-page .book-card .book-del-btn { position: absolute; top: 6px; right: 6px; left: auto; }
   .lib-page .lib-modal-back { padding: 8px; }
   .lib-page .lib-modal { max-width: 100%; border-radius: 10px; }
   .lib-page .lib-modal-head { flex-wrap: wrap; padding: 12px 14px; gap: 10px; }
   .lib-page .lib-modal-head-title { flex: 1 1 100%; order: 2; min-width: 0; }
   .lib-page .lib-modal-head-title .mh-name { font-size: 15px; white-space: normal; word-break: break-word; line-height: 1.3; }
   .lib-page .lib-modal-head-title .mh-author { font-size: 11px; }
-  .lib-page .lib-modal-cover { width: 48px; height: 64px; order: 1; }
+  .lib-page .lib-modal-cover { width: 56px; height: 84px; order: 1; }
   .lib-page .lib-modal-head-actions { order: 3; flex: 1 1 100%; justify-content: flex-end; gap: 4px; flex-wrap: wrap; }
   .lib-page .lib-modal-head-actions .lib-btn { padding: 0 8px; font-size: 12px; }
   .lib-page .lib-modal-head-actions .lib-modal-close { order: 99; }
