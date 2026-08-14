@@ -1838,8 +1838,40 @@ const App = {
   // === PWA ===
   registerSW() {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(err => {
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+        // 弹出「发现新版本」横幅，点击即更新
+        const promptUpdate = (worker) => {
+          if (document.getElementById('sw-update-banner')) return;
+          const banner = document.createElement('div');
+          banner.id = 'sw-update-banner';
+          banner.className = 'sw-update-banner';
+          banner.innerHTML = '<span>发现新版本，点击更新</span><button type="button" id="sw-update-btn">立即更新</button>';
+          document.body.appendChild(banner);
+          document.getElementById('sw-update-btn').addEventListener('click', () => {
+            worker.postMessage({ type: 'SKIP_WAITING' });
+            banner.remove();
+          });
+        };
+        // 页面加载时即发现等待中的 worker
+        if (reg.waiting && navigator.serviceWorker.controller) promptUpdate(reg.waiting);
+        // 后续检测到新版本
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) promptUpdate(nw);
+          });
+        });
+      }).catch(err => {
         console.warn('SW registration failed:', err);
+      });
+
+      // 新 worker 接管后自动刷新页面
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
       });
     }
   },

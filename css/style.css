@@ -1100,6 +1100,38 @@ textarea { min-height: 80px; line-height: 1.6; }
 
 .toast.show { opacity: 1; }
 
+/* === 新版本更新横幅 === */
+.sw-update-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--emerald, #2E7D5B);
+  color: #FFFFFF;
+  padding: 8px 8px 8px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  z-index: 999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  max-width: calc(100vw - 24px);
+}
+.sw-update-banner button {
+  background: #FFFFFF;
+  color: var(--emerald, #2E7D5B);
+  border: none;
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.sw-update-banner button:active { transform: scale(0.97); }
+
 /* === Empty state === */
 .empty-state {
   text-align: center;

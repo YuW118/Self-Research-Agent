@@ -3,7 +3,7 @@
  * PWA offline support - network-first for JS/CSS, cache-first for others
  */
 
-const CACHE_NAME = 'self-research-v34';
+const CACHE_NAME = 'self-research-v35';
 const ASSETS = [
   './',
   './index.html',
@@ -85,4 +85,11 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => cached);
     })
   );
+});
+
+// 收到「跳过等待」消息后立即激活新版本
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
