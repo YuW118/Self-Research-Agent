@@ -3,7 +3,7 @@
  * PWA offline support - network-first for JS/CSS, cache-first for others
  */
 
-const CACHE_NAME = 'self-research-v33';
+const CACHE_NAME = 'self-research-v34';
 const ASSETS = [
   './',
   './index.html',
@@ -18,6 +18,7 @@ const ASSETS = [
   './js/app.js',
   './js/library-data.js',
   './js/library-books-extra.js',
+  './js/library-covers.js',
   './js/library.js',
   './assets/icon.svg',
   './assets/icon-maskable.svg',

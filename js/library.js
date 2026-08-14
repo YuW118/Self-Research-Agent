@@ -63,16 +63,20 @@
     return [
       ...custom.map(b => ({ ...b, isCustom: true, ...(overrides[b.id] || {}) })),
       ...seed.map(b => ({ ...b, isCustom: false, ...(overrides[b.id] || {}) }))
-    ];
+    ].map(b => ({ ...b, coverUrl: coverUrlOf(b) }));
   }
   function getBook(id) { return getBooks().find(b => b.id === id) || null; }
   function getBookStatus(id) {
     const s = LibStore.get('bookStatus', {});
     return s[id] || 'none';
   }
-  function getBookCover(id) {
-    const covers = LibStore.get('bookCover', {});
-    return covers[id] || null;
+  // 解析书籍封面 URL：优先 IndexedDB 缓存，其次遗留的 data URL / 远程 URL 字符串
+  function coverUrlOf(b) {
+    if (!b) return null;
+    const cached = LibCovers.getCached(b.id);
+    if (cached) return cached;
+    if (typeof b.cover === 'string') return b.cover; // 遗留 data URL 或 OpenLibrary 远程 URL
+    return null;
   }
   function getPapers() { return LIB_SEED_PAPERS; }
   function getReadSet() { return LibStore.get('paperReadSet', {}); }
@@ -447,7 +451,7 @@
       const key = s || 'none';
       groups[key].push(b);
     });
-    const order = state.bookStatus === 'all' ? ['want', 'reading', 'done', 'none'] : [state.bookStatus];
+    const order = state.bookStatus === 'all' ? ['reading', 'want', 'none', 'done'] : [state.bookStatus];
     let html = '';
     order.forEach(st => {
       const list = groups[st];
@@ -461,10 +465,11 @@
     const d = LIB_DOMAINS.find(x => x.id === (getBookDomain(b.id) || b.domain));
     const st = getBookStatus(b.id);
     const diff = LIB_DIFF_MAP[b.difficulty] || LIB_DIFF_MAP.medium;
-    const coverStyle = b.cover ? `background-image:url('${esc(b.cover)}');` : `background:var(--lib-${d.color});`;
+    const cu = coverUrlOf(b);
+    const coverStyle = cu ? `background-image:url('${esc(cu)}');` : `background:var(--lib-${d.color});`;
     const resonanceCount = getResonanceCountForBook(b.id);
     return `<div class="book-card" data-lib-action="open-book" data-id="${b.id}">
-      <div class="book-cover ${b.cover ? 'has-cover' : ''}" style="${coverStyle}">
+      <div class="book-cover ${cu ? 'has-cover' : ''}" style="${coverStyle}">
         <div class="bc-title">${esc(b.title)}</div>
         ${resonanceCount > 0 ? `<div class="bc-resonance-count">${LIB_Icon.resonance} ${resonanceCount}</div>` : ''}
         <div class="bc-domain" style="background:var(--lib-${d.color}-dark);">${d.icon} ${d.name}</div>
@@ -568,7 +573,8 @@
     const b = getBook(id); if (!b) return;
     const d = LIB_DOMAINS.find(x => x.id === (getBookDomain(b.id) || b.domain));
     const st = getBookStatus(b.id);
-    const coverStyle = b.cover ? `background-image:url('${esc(b.cover)}');color:transparent;` : `background:var(--lib-${d.color});`;
+    const cu = coverUrlOf(b);
+    const coverStyle = cu ? `background-image:url('${esc(cu)}');color:transparent;` : `background:var(--lib-${d.color});`;
     const resonanceCount = getResonanceCountForBook(b.id);
     const modal = document.getElementById('lib-book-modal');
     modal.style.display = 'block';
@@ -576,7 +582,7 @@
       <div class="lib-modal-back" data-lib-action="close-modal">
         <div class="lib-modal" data-lib-action="noop">
           <div class="lib-modal-head">
-            <div class="lib-modal-cover ${b.cover ? 'has-cover' : ''}" style="${coverStyle}">${b.cover ? '' : esc((b.title || '').slice(0, 4))}</div>
+            <div class="lib-modal-cover ${cu ? 'has-cover' : ''}" style="${coverStyle}">${cu ? '' : esc((b.title || '').slice(0, 4))}</div>
             <div class="lib-modal-head-title">
               <div class="mh-name">${esc(b.title)}</div>
               <div class="mh-author">${esc(b.author || '未知作者')} · ${d.icon} ${d.name}</div>
@@ -743,10 +749,13 @@
         id: b.id, title: b.title || '', author: b.author || '',
         domain: (getBookDomain(b.id) || b.domain) || 'humanity',
         difficulty: b.difficulty || 'medium',
-        cover: b.cover || null, coverSource: b.cover ? 'upload' : 'auto'
+        cover: !!b.cover,                                  // 布尔标记：是否存在自定义封面
+        _coverFile: null,                                  // 待持久化的图片文件（新建/替换时）
+        _coverDataUrl: (typeof b.cover === 'string' ? b.cover : (LibCovers.getCached(b.id) || null)), // 预览用
+        coverSource: b.cover ? 'upload' : 'auto'
       };
     } else {
-      draft = { id: null, title: '', author: '', domain: 'humanity', difficulty: 'medium', cover: null, coverSource: 'auto' };
+      draft = { id: null, title: '', author: '', domain: 'humanity', difficulty: 'medium', cover: false, _coverFile: null, _coverDataUrl: null, coverSource: 'auto' };
     }
     state.formDraft = draft;
     const modal = document.getElementById('lib-form-modal');
@@ -769,15 +778,15 @@
               <div id="lib-ol-results" style="margin-top:8px;"></div>
             </div>
             <div class="cover-uploader">
-              <div class="cu-preview" id="lib-cover-preview" style="${draft.cover ? `background-image:url('${esc(draft.cover)}');` : `background:var(--lib-${d.color});color:rgba(255,255,255,0.85);`}">${draft.cover ? '' : `${esc((draft.title || '书名').slice(0,4))}`}</div>
+              <div class="cu-preview" id="lib-cover-preview" style="${draft._coverDataUrl ? `background-image:url('${esc(draft._coverDataUrl)}');` : `background:var(--lib-${d.color});color:rgba(255,255,255,0.85);`}">${draft._coverDataUrl ? '' : `${esc((draft.title || '书名').slice(0,4))}`}</div>
               <div class="cu-fields">
                 <div class="cu-buttons">
-                  <input type="file" id="lib-book-cover-input" accept="image/*">
+                  <input type="file" id="lib-book-cover-input" accept="image/jpeg,image/png,image/webp">
                   <button class="lib-btn lib-btn-sm" data-lib-action="pick-cover">${LIB_Icon.upload} 上传封面</button>
-                  <button class="lib-btn lib-btn-sm lib-btn-ghost" data-lib-action="clear-cover" ${draft.cover ? '' : 'style="display:none;"'}>${LIB_Icon.trash} 清除</button>
+                  <button class="lib-btn lib-btn-sm lib-btn-ghost" data-lib-action="clear-cover" ${draft._coverDataUrl ? '' : 'style="display:none;"'}>${LIB_Icon.trash} 清除</button>
                 </div>
-                <div class="cu-hint">支持 jpg / png / webp；建议竖图（2:3）。也可用上方 OpenLibrary 搜索自动获取封面。不设置则使用领域色 + 书名居中。</div>
-                <div class="cu-source" id="lib-cover-source">${draft.cover ? '已使用自定义封面' : '当前使用领域色封面'}</div>
+                <div class="cu-hint">仅支持 JPG / PNG / WebP，大小不超过 5MB；建议竖图（2:3）。也可用上方 OpenLibrary 搜索自动获取封面。不设置则使用领域色 + 书名居中。</div>
+                <div class="cu-source" id="lib-cover-source">${draft._coverDataUrl ? '已使用自定义封面' : '当前使用领域色封面'}</div>
               </div>
             </div>
             <div class="form-row" style="margin-top:16px;"><label>书名 <span style="color:var(--lib-rose-dark);">*</span></label>
@@ -800,6 +809,9 @@
           </div>
         </div>
       </div>`;
+    // 绑定封面文件上传（输入框每次打开都重建，故直接挂监听，无重复绑定）
+    const coverInput = modal.querySelector('#lib-book-cover-input');
+    if (coverInput) coverInput.addEventListener('change', handleFormChange);
   }
 
   /* ==================== 事件委托 ==================== */
@@ -988,7 +1000,9 @@
       }
       case 'clear-cover': {
         e.stopPropagation();
-        state.formDraft.cover = null;
+        state.formDraft._coverFile = null;
+        state.formDraft._coverDataUrl = null;
+        state.formDraft.cover = false;
         const preview = document.getElementById('lib-cover-preview');
         const d = LIB_DOMAINS.find(x => x.id === state.formDraft.domain) || LIB_DOMAINS[0];
         preview.classList.remove('has-cover');
@@ -1009,28 +1023,43 @@
         d.domain = document.getElementById('lib-form-domain').value;
         d.difficulty = document.getElementById('lib-form-difficulty').value;
         if (!d.title) { flashTip('请输入书名'); return; }
-        if (d.id) {
-          const overrides = LibStore.get('bookOverrides', {});
-          overrides[d.id] = { ...(overrides[d.id] || {}), title: d.title, author: d.author, domain: d.domain, difficulty: d.difficulty, cover: d.cover };
-          LibStore.set('bookOverrides', overrides);
-          flashTip('已更新');
-        } else {
-          const custom = LibStore.get('customBooks', []);
-          custom.push({
-            id: 'c' + Date.now(), domain: d.domain, title: d.title, author: d.author || '未知作者',
-            difficulty: d.difficulty, cover: d.cover,
-            mindmap: { root: d.title, children: [
-              { label: '核心概念' }, { label: '关键方法' }, { label: '应用场景' }, { label: '延伸阅读' }
-            ]},
-            guide: { why: '（待 AI 生成 — 首次保存后可在「编辑」中补全）',
-                     questions: ['（待补充导读问题）'], core: [], difficulty: LIB_DIFF_MAP[d.difficulty].label, difficultyDesc: '' }
-          });
-          LibStore.set('customBooks', custom);
-          flashTip('已添加');
-        }
-        closeModals();
-        renderDomainStrip(); renderBooks();
-        if (window.App && window.App.renderDashboard) window.App.renderDashboard();
+        // 封面持久化（IndexedDB）为异步，整体用 async 包裹
+        (async () => {
+          try {
+            if (d.id) {
+              const overrides = LibStore.get('bookOverrides', {});
+              const prev = overrides[d.id] || {};
+              let coverVal = prev.cover;            // 保留已有封面（可能是远程 URL 或 true）
+              if (d._coverFile) { await LibCovers.put(d.id, d._coverFile); coverVal = true; }
+              else if (d.cover === false && prev.cover) { await LibCovers.remove(d.id); coverVal = null; }
+              overrides[d.id] = { ...prev, title: d.title, author: d.author, domain: d.domain, difficulty: d.difficulty, cover: coverVal };
+              LibStore.set('bookOverrides', overrides);
+              flashTip('已更新');
+            } else {
+              const id = 'c' + Date.now();
+              let coverVal = false;
+              if (d._coverFile) { await LibCovers.put(id, d._coverFile); coverVal = true; }
+              const custom = LibStore.get('customBooks', []);
+              custom.push({
+                id, domain: d.domain, title: d.title, author: d.author || '未知作者',
+                difficulty: d.difficulty, cover: coverVal,
+                mindmap: { root: d.title, children: [
+                  { label: '核心概念' }, { label: '关键方法' }, { label: '应用场景' }, { label: '延伸阅读' }
+                ]},
+                guide: { why: '（待 AI 生成 — 首次保存后可在「编辑」中补全）',
+                         questions: ['（待补充导读问题）'], core: [], difficulty: LIB_DIFF_MAP[d.difficulty].label, difficultyDesc: '' }
+              });
+              LibStore.set('customBooks', custom);
+              flashTip('已添加');
+            }
+            closeModals();
+            renderDomainStrip(); renderBooks();
+            if (window.App && window.App.renderDashboard) window.App.renderDashboard();
+          } catch (err) {
+            console.error('保存书籍封面失败：', err);
+            flashTip('保存失败：' + (err && err.message ? err.message : err));
+          }
+        })();
         break;
       }
       case 'delete-resonance': {
@@ -1062,6 +1091,8 @@
         const b = getBook(id);
         if (!b) break;
         if (!confirm(`确定删除《${b.title}》？`)) break;
+        // 同步删除 IndexedDB 中的封面
+        LibCovers.remove(id).catch(() => {});
         if (b.isCustom) {
           // 自定义书籍：从 customBooks 中物理删除
           const custom = LibStore.get('customBooks', []).filter(x => x.id !== id);
@@ -1246,15 +1277,27 @@
     }
   }
 
-  // 封面文件上传
+  // 封面文件上传（限制 JPG/PNG/WebP，≤5MB）
+  const COVER_MAX_BYTES = 5 * 1024 * 1024;
+  const COVER_ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
   function handleFormChange(e) {
     if (e.target && e.target.id === 'lib-book-cover-input') {
       const f = e.target.files && e.target.files[0];
+      e.target.value = ''; // 允许重复选择同一文件
       if (!f) return;
-      if (f.size > 2 * 1024 * 1024) { flashTip('封面图请控制在 2MB 以内'); e.target.value = ''; return; }
+      if (!COVER_ALLOWED.includes(f.type)) {
+        flashTip('仅支持 JPG / PNG / WebP 格式');
+        return;
+      }
+      if (f.size > COVER_MAX_BYTES) {
+        flashTip(`图片不超过 5MB（当前 ${(f.size / 1024 / 1024).toFixed(1)}MB）`);
+        return;
+      }
       const reader = new FileReader();
       reader.onload = ev => {
-        state.formDraft.cover = ev.target.result;
+        state.formDraft._coverFile = f;          // 待保存时写入 IndexedDB
+        state.formDraft._coverDataUrl = ev.target.result;
+        state.formDraft.cover = true;
         state.formDraft.coverSource = 'upload';
         const preview = document.getElementById('lib-cover-preview');
         preview.style.backgroundImage = `url('${ev.target.result}')`;
@@ -1270,12 +1313,51 @@
   }
 
   /* ==================== 主流程 ==================== */
+  // 一次性迁移：把遗留的 data URL 封面从 localStorage 搬进 IndexedDB
+  async function migrateLegacyCovers() {
+    if (LibStore.get('coverMigrated', false)) return;
+    try {
+      const overrides = LibStore.get('bookOverrides', {});
+      let oc = false;
+      for (const id of Object.keys(overrides)) {
+        const o = overrides[id];
+        if (o && typeof o.cover === 'string' && o.cover.indexOf('data:') === 0) {
+          await LibCovers.put(id, o.cover);
+          overrides[id] = { ...o, cover: true };
+          oc = true;
+        }
+      }
+      if (oc) LibStore.set('bookOverrides', overrides);
+
+      const custom = LibStore.get('customBooks', []);
+      let cc = false;
+      for (const b of custom) {
+        if (b && typeof b.cover === 'string' && b.cover.indexOf('data:') === 0) {
+          await LibCovers.put(b.id, b.cover);
+          b.cover = true; cc = true;
+        }
+      }
+      if (cc) LibStore.set('customBooks', custom);
+
+      LibStore.set('coverMigrated', true);
+    } catch (e) {
+      console.warn('封面迁移失败（已跳过）：', e);
+    }
+  }
+
   function mount() {
     // 主视图已由 Views.library() 渲染到 #main 中
     renderHeatmap();
     renderDomainStrip();
-    renderBooks();
+    renderBooks();   // 先渲染（封面可能暂无），预加载完成后再刷新
     renderPapers();
+    // 异步：初始化 IndexedDB → 迁移旧封面 → 预加载 → 重新渲染
+    (async () => {
+      try { await LibCovers.init(); } catch (e) { /* 回退 localStorage */ }
+      await migrateLegacyCovers();
+      await LibCovers.preload();
+      renderBooks();
+    })();
   }
 
   /* ==================== 公开发布 ==================== */
