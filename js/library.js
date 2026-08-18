@@ -211,10 +211,38 @@
       <circle cx="8" cy="16" r="0.7" fill="currentColor" stroke="none"/>
     </svg>`;
   }
+  /* ==================== 用户活跃度计算 ====================
+     定义「新增阅读共鸣」+「书籍库链接」→ 当日活跃度评分
+
+     - 新增阅读共鸣：当天 createdAt（ISO 字符串前缀 YYYY-MM-DD）落入 readingLog[dateKey] 的 sr_readings 条目数
+     - 成功链接书籍库：上述共鸣中 relatedBook 非空 且 getBook() 能查到对应书的数量
+     - 评分公式：score = 手动打卡(0/1) + newResonances + linkedResonanceBonus
+       其中 linkedResonanceBonus = linkedResonances（每条链接共鸣额外加 1 分）
+       即：未链接共鸣 1 分，链接共鸣 2 分（含链接加成），手动打卡 1 分
+     - 实时统计：每次 renderHeatmap 都从 localStorage('sr_readings') 重新读，不维护缓存，保证当天新增 / 链接后立即反映
+  */
+  function computeDailyActivity(dateKey) {
+    let rs = [];
+    try { rs = JSON.parse(localStorage.getItem('sr_readings') || '[]'); } catch (e) { rs = []; }
+    const dayResonances = rs.filter(r => {
+      if (!r) return false;
+      const rDate = (r.createdAt || r.date || '').slice(0, 10);
+      return rDate === dateKey;
+    });
+    const newResonances = dayResonances.length;
+    const linkedResonances = dayResonances.filter(r => {
+      if (!r.relatedBook) return false;
+      // 链接判定：relatedBook 非空 且 在书籍库中能找到（防孤立引用）
+      return !!getBook(r.relatedBook);
+    }).length;
+    const manual = ((_getReadingLog()[dateKey]) || {}).manual === true ? 1 : 0;
+    const score = manual + newResonances + linkedResonances;
+    return { manual, newResonances, linkedResonances, score, totalResonances: newResonances };
+  }
+
   function renderHeatmap() {
     const el = document.getElementById('lib-heatmap');
     if (!el) return;
-    const log = _getReadingLog();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayKey = _todayKey();
@@ -229,39 +257,39 @@
     const gridStart = new Date(yearStart);
     gridStart.setDate(gridStart.getDate() - janDow);
 
-    // 遍历 371 格；统计当年内（不含未来）的活跃天数 / 总动作 / 最长连登
+    // 遍历 371 格；实时计算每格活跃度评分，统计当年内（不含未来）的总活跃天数 / 总评分 / 最长连登
     const cells = [];
-    let activeDays = 0, totalActions = 0;
+    let activeDays = 0, totalScore = 0;
     let longestStreak = 0, tempStreak = 0;
     for (let i = 0; i < HEATMAP_TOTAL_CELLS; i++) {
       const d = new Date(gridStart);
       d.setDate(gridStart.getDate() + i);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const inYear = d.getFullYear() === year;
-      const entry = log[key] || { books: 0, papers: 0, total: 0 };
       const isFuture = d > today;
       const isToday = key === todayKey;
+      const activity = inYear && !isFuture ? computeDailyActivity(key) : { score: 0, newResonances: 0, linkedResonances: 0, manual: 0 };
       if (inYear && !isFuture) {
-        if (entry.total > 0) {
+        if (activity.score > 0) {
           activeDays++;
-          totalActions += entry.total;
+          totalScore += activity.score;
           tempStreak++;
           if (tempStreak > longestStreak) longestStreak = tempStreak;
         } else {
           tempStreak = 0;
         }
       }
-      cells.push({ date: d, key, entry, isToday, isFuture, inYear });
+      cells.push({ date: d, key, activity, isToday, isFuture, inYear });
     }
 
-    // 当前连登（从今天往前数连续活跃天数）
+    // 当前连登（从今天往前数连续活跃天数，score > 0 即算）
     const todayIdx = cells.findIndex(c => c.isToday);
     let currentStreak = 0;
     if (todayIdx >= 0) {
       for (let i = todayIdx; i >= 0; i--) {
         const c = cells[i];
         if (!c.inYear) continue;
-        if (c.entry.total > 0) currentStreak++;
+        if (c.activity.score > 0) currentStreak++;
         else break;
       }
     }
@@ -288,13 +316,16 @@
 
     // 渲染 371 格（7 行 × 53 列，grid-auto-flow:column）
     const cellsHtml = cells.map((c) => {
-      const t = c.entry.total || 0;
+      const a = c.activity;
+      const t = a.score || 0;
       const lv = !c.inYear ? 0 : (t === 0 ? 0 : t === 1 ? 1 : t <= 3 ? 2 : t <= 5 ? 3 : 4);
       const labelDate = `${c.date.getMonth() + 1}/${c.date.getDate()}`;
+      // tooltip：日期 + 评分明细（手动 / 共鸣 / 链接 / 总分）
       const tipParts = [`${labelDate}`, `${year}年`];
-      if (c.entry.books) tipParts.push(`书${c.entry.books}`);
-      if (c.entry.papers) tipParts.push(`论文${c.entry.papers}`);
-      const tip = tipParts.join(' ') + (t === 0 ? ' 未打卡' : ` · 共${t} 次`);
+      if (a.manual) tipParts.push('手动');
+      if (a.newResonances) tipParts.push(`共鸣${a.newResonances}`);
+      if (a.linkedResonances) tipParts.push(`链${a.linkedResonances}`);
+      const tip = tipParts.join(' · ') + (t === 0 ? ' · 未打卡' : ` · 评${t}`);
       const classes = ['heatmap-cell', `lv-${lv}`];
       if (!c.inYear) classes.push('is-out-of-year');
       if (c.isToday) classes.push('is-today');
@@ -319,7 +350,7 @@
         <span><span class="hs-num">${activityRate}%</span> 活跃率</span>
         <span><span class="hs-num">${longestStreak}</span> 天最长连登</span>
         <span><span class="hs-num">${currentStreak}</span> 天当前连登</span>
-        <span><span class="hs-num">${totalActions}</span> 次动作</span>
+        <span><span class="hs-num">${totalScore}</span> 总评分</span>
       </div>
       <div class="heatmap-wrap">
         <div class="heatmap-month-labels">${monthLabelsHtml}</div>
@@ -1437,6 +1468,25 @@
       const s = LibStore.get('bookStatus', {});
       Object.values(s).forEach(v => { if (v === 'done') n++; });
       return n;
+    },
+    /**
+     * 公开刷新入口：当 sr_readings（新增/编辑/删除/链接书籍）变化时，
+     * self-research 模块可调用 Library.refreshActivity() 让热力图实时反映当日评分变化。
+     * 仅在当前页面已挂载热力图时生效（id="lib-heatmap" 存在）。
+     */
+    refreshActivity() {
+      if (document.getElementById('lib-heatmap')) {
+        renderHeatmap();
+        return true;
+      }
+      return false;
+    },
+    /**
+     * 计算指定日期的活跃度评分（公开，供外部查询/调试）
+     * 返回 { manual, newResonances, linkedResonances, score }
+     */
+    computeActivity(dateKey) {
+      return computeDailyActivity(dateKey);
     },
     closeModals,
     flashTip,
