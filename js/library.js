@@ -165,8 +165,8 @@
     return reply;
   }
 
-  /* ==================== 200 天阅读热力图（50×4 = 200 个小方格，从首次打卡开始）==================== */
-  const HEATMAP_DAYS = 200;
+  /* ==================== 阅读热力图（GitHub 风格 · 全年 7×53 周视图）==================== */
+  const HEATMAP_TOTAL_CELLS = 53 * 7; // 53 周 × 7 天 = 371 格
   function _todayKey() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -219,67 +219,116 @@
     today.setHours(0, 0, 0, 0);
     const todayKey = _todayKey();
 
-    // 第一格从首次打卡开始；无打卡记录则从今天开始
-    const firstDate = _getFirstCheckinDate() || new Date(today);
-    firstDate.setHours(0, 0, 0, 0);
+    // 当前年份 1 月 1 日
+    const year = today.getFullYear();
+    const yearStart = new Date(year, 0, 1);
+    yearStart.setHours(0, 0, 0, 0);
 
-    // 打卡超过 N 天时滑动窗口，确保今天始终可见
-    const daysSinceStart = Math.floor((today - firstDate) / 86400000);
-    const startOffset = daysSinceStart < HEATMAP_DAYS ? 0 : daysSinceStart - (HEATMAP_DAYS - 1);
+    // 网格起点：当年 1 月 1 日所在周的周日（保证 Jan 1 在网格内）
+    const janDow = yearStart.getDay(); // 0=Sun
+    const gridStart = new Date(yearStart);
+    gridStart.setDate(gridStart.getDate() - janDow);
 
-    // N 格 = 第 (startOffset+1) 天 到 第 (startOffset+N) 天
+    // 遍历 371 格；统计当年内（不含未来）的活跃天数 / 总动作 / 最长连登
     const cells = [];
     let activeDays = 0, totalActions = 0;
-    for (let i = 0; i < HEATMAP_DAYS; i++) {
-      const d = new Date(firstDate);
-      d.setDate(firstDate.getDate() + startOffset + i);
+    let longestStreak = 0, tempStreak = 0;
+    for (let i = 0; i < HEATMAP_TOTAL_CELLS; i++) {
+      const d = new Date(gridStart);
+      d.setDate(gridStart.getDate() + i);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const inYear = d.getFullYear() === year;
       const entry = log[key] || { books: 0, papers: 0, total: 0 };
       const isFuture = d > today;
       const isToday = key === todayKey;
-      if (entry.total > 0) { activeDays++; totalActions += entry.total; }
-      cells.push({ date: d, key, entry, isToday, isFuture, dayNum: startOffset + i + 1 });
+      if (inYear && !isFuture) {
+        if (entry.total > 0) {
+          activeDays++;
+          totalActions += entry.total;
+          tempStreak++;
+          if (tempStreak > longestStreak) longestStreak = tempStreak;
+        } else {
+          tempStreak = 0;
+        }
+      }
+      cells.push({ date: d, key, entry, isToday, isFuture, inYear });
     }
 
-    // 连续天数（从今天往前数连续有活动的天数）
+    // 当前连登（从今天往前数连续活跃天数）
     const todayIdx = cells.findIndex(c => c.isToday);
-    let streak = 0;
+    let currentStreak = 0;
     if (todayIdx >= 0) {
       for (let i = todayIdx; i >= 0; i--) {
-        if (cells[i].entry.total > 0) streak++;
+        const c = cells[i];
+        if (!c.inYear) continue;
+        if (c.entry.total > 0) currentStreak++;
         else break;
       }
     }
 
-    // 渲染 50 列 × 4 行 = 200 格
-    const cellHtml = cells.map((c) => {
+    // 月份标签：每个月首次出现在网格中的那一列（grid-column-start 用 1-indexed）
+    const monthLabels = [];
+    let lastMonth = -1;
+    for (let w = 0; w < 53; w++) {
+      for (let d = 0; d < 7; d++) {
+        const c = cells[w * 7 + d];
+        if (!c || !c.inYear) continue;
+        const m = c.date.getMonth();
+        if (m !== lastMonth) {
+          monthLabels.push({ col: w + 1, name: (m + 1) + '月' });
+          lastMonth = m;
+        }
+        break;
+      }
+    }
+
+    // 活跃率 = 活跃天数 / 当年至今天数（含今天）
+    const daysThisYear = Math.floor((today - yearStart) / 86400000) + 1;
+    const activityRate = daysThisYear > 0 ? Math.round(activeDays / daysThisYear * 100) : 0;
+
+    // 渲染 371 格（7 行 × 53 列，grid-auto-flow:column）
+    const cellsHtml = cells.map((c) => {
       const t = c.entry.total || 0;
-      const lv = t === 0 ? 0 : t === 1 ? 1 : t <= 3 ? 2 : t <= 5 ? 3 : 4;
+      const lv = !c.inYear ? 0 : (t === 0 ? 0 : t === 1 ? 1 : t <= 3 ? 2 : t <= 5 ? 3 : 4);
       const labelDate = `${c.date.getMonth() + 1}/${c.date.getDate()}`;
-      const tipParts = [`第${c.dayNum}天`, labelDate];
+      const tipParts = [`${labelDate}`, `${year}年`];
       if (c.entry.books) tipParts.push(`书${c.entry.books}`);
       if (c.entry.papers) tipParts.push(`论文${c.entry.papers}`);
-      const tip = tipParts.join(' ') + (t === 0 ? '' : ` 共${t}`);
+      const tip = tipParts.join(' ') + (t === 0 ? ' 未打卡' : ` · 共${t} 次`);
       const classes = ['heatmap-cell', `lv-${lv}`];
+      if (!c.inYear) classes.push('is-out-of-year');
       if (c.isToday) classes.push('is-today');
       if (c.isFuture) classes.push('is-future');
-      const actionAttr = c.isFuture ? '' : 'data-lib-action="toggle-day-checkin"';
+      const actionAttr = (!c.inYear || c.isFuture) ? '' : 'data-lib-action="toggle-day-checkin"';
       return `<div class="${classes.join(' ')}" ${actionAttr} data-key="${c.key}"><span class="heatmap-tooltip">${tip}</span></div>`;
     }).join('');
 
-    // 今天是第几天
-    const todayDayNum = daysSinceStart + 1;
+    const monthLabelsHtml = monthLabels.map(m =>
+      `<span class="heatmap-month-label" style="grid-column-start:${m.col};">${m.name}</span>`
+    ).join('');
+
     el.innerHTML = `
       <div class="heatmap-head">
-        <div class="heatmap-title">${_calendarIcon()} 阅读热力图 · 第 ${todayDayNum} 天</div>
+        <div class="heatmap-title">${_calendarIcon()} 全年阅读活跃记录 <span class="heatmap-year">${year}年</span></div>
         <div class="heatmap-stats">
-          <span><span class="hs-num">${activeDays}</span>活跃</span>
-          <span><span class="hs-num">${totalActions}</span>动作</span>
-          <span><span class="hs-num">${streak}</span>连续</span>
+          <span><span class="hs-num">${activeDays}</span> 天活跃 · 活跃率 <span class="hs-num">${activityRate}%</span></span>
         </div>
       </div>
-      <div class="heatmap-wrap"><div class="heatmap-grid">${cellHtml}</div></div>
-      <div class="heatmap-legend">少<span class="heatmap-legend-cells"><span></span><span></span><span></span><span></span><span></span></span>多</div>
+      <div class="heatmap-substats">
+        <span><span class="hs-num">${activeDays}</span> 天活跃</span>
+        <span><span class="hs-num">${activityRate}%</span> 活跃率</span>
+        <span><span class="hs-num">${longestStreak}</span> 天最长连登</span>
+        <span><span class="hs-num">${currentStreak}</span> 天当前连登</span>
+        <span><span class="hs-num">${totalActions}</span> 次动作</span>
+      </div>
+      <div class="heatmap-wrap">
+        <div class="heatmap-month-labels">${monthLabelsHtml}</div>
+        <div class="heatmap-grid">${cellsHtml}</div>
+      </div>
+      <div class="heatmap-foot">
+        <div class="heatmap-footer">数据更新于每日 02:00</div>
+        <div class="heatmap-legend">未活跃<span class="heatmap-legend-cells"><span></span><span></span><span></span><span></span><span></span></span>活跃</div>
+      </div>
     `;
   }
 
